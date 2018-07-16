@@ -52,7 +52,7 @@ int g_flag;
 int h_flag;
 
 /* sets if engine should be used if the old key usage is set
- * i.e., setting this uses the old key für signing and does
+ * i.e., setting this uses the old key fï¿½r signing and does
  * not set anything for the lowercase options that correspond
  * to the new keys
 */
@@ -97,6 +97,9 @@ int O_flag;
 /* Proxy */
 char *p_char;
 int p_flag;
+
+/* SSL connection */
+int ssl_flag;
 
 /* GetCrl CRL file */
 char *r_char;

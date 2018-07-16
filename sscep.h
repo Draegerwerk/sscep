@@ -63,6 +63,8 @@
 #include <openssl/objects.h>
 #include <openssl/asn1_mac.h>
 #include <openssl/ssl.h>
+#include <openssl/x509.h>
+#include <openssl/x509_vfy.h>
 /* Global defines */
 
 #define	VERSION	"0.6.1"

@@ -11,3 +11,6 @@
 /sscep_dyn
 /sscep.o
 /.git_checkout
+.idea
+Makefile
+cmake-build-debug/
