@@ -27,7 +27,7 @@ int new_transaction(struct scep *s) {
 	s->fail_info_str = NULL;
 
 	/* Set other variables */
-	s->ias_getcertinit = pkcs7_issuer_and_subject_new();
+	s->ias_getcertinit = PKCS7_ISSUER_AND_SUBJECT_new();
 	s->ias_getcert = PKCS7_ISSUER_AND_SERIAL_new();
 	s->ias_getcrl = PKCS7_ISSUER_AND_SERIAL_new();
 
@@ -99,7 +99,11 @@ int new_selfsigned(struct scep *s) {
 	}
 	/* Get serial no from transaction id */
 	ptr = (unsigned char *)s->transaction_id;
-	if (!(serial = c2i_ASN1_INTEGER(NULL, &ptr, 32))) {
+
+    BIGNUM* bn = BN_new();
+    BN_bin2bn(ptr, sizeof(ptr), bn);
+
+	if (!(serial = BN_to_ASN1_INTEGER(bn, NULL))) {
 		fprintf(stderr, "%s: error converting serial\n", pname);
 		ERR_print_errors_fp(stderr);
 		exit (SCEP_PKISTATUS_SS);
@@ -168,8 +172,6 @@ int init_scep() {
 	unsigned char   randpool[1024];
 
 	/* Add algorithms and init random pool */
-	OpenSSL_add_all_algorithms();
-	ERR_load_crypto_strings();
 	RAND_seed(randpool, sizeof(randpool));
 
 	/* Create OpenSSL NIDs */

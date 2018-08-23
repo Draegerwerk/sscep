@@ -53,6 +53,7 @@
 #include <openssl/crypto.h>
 #include <openssl/buffer.h>
 #include <openssl/asn1.h>
+#include <openssl/asn1t.h>
 #include <openssl/x509.h>
 #include <openssl/x509v3.h>
 #include <openssl/pkcs7.h>
@@ -61,7 +62,7 @@
 #include <openssl/rand.h>
 #include <openssl/md5.h>
 #include <openssl/objects.h>
-#include <openssl/asn1_mac.h>
+#include <openssl/safestack.h>
 #include <openssl/ssl.h>
 #include <openssl/x509.h>
 #include <openssl/x509_vfy.h>
@@ -136,7 +137,7 @@ int operation_flag;
 	"Integrity check failed"
 #define SCEP_FAILINFO_BADREQ		2
 #define SCEP_FAILINFO_BADREQ_STR	\
-	"Transaction not permitted or supported" 
+	"Transaction not permitted or supported"
 #define SCEP_FAILINFO_BADTIME		3
 #define SCEP_FAILINFO_BADTIME_STR	\
 	"Message time field was not sufficiently close to the system time"
@@ -197,10 +198,10 @@ int pkistatus;
 
 /* GETCertInital data structure */
 
-typedef struct {
+typedef struct pkcs7_issuer_and_subject_st {
 	X509_NAME *issuer;
 	X509_NAME *subject;
-} pkcs7_issuer_and_subject;
+} PKCS7_ISSUER_AND_SUBJECT;
 
 /* HTTP reply structure */
 struct http_reply {
@@ -251,13 +252,13 @@ struct scep {
 	PKCS7 *request_p7;
 	unsigned char *request_payload;
 	int request_len;
-	pkcs7_issuer_and_subject *ias_getcertinit;
+	PKCS7_ISSUER_AND_SUBJECT *ias_getcertinit;
 	PKCS7_ISSUER_AND_SERIAL *ias_getcert;
 	PKCS7_ISSUER_AND_SERIAL *ias_getcrl;
 
 	/* Reply */
 	PKCS7 *reply_p7;
-	unsigned char *reply_payload;	
+	unsigned char *reply_payload;
 	int reply_len;
 
 	/* Engine */

@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.5)
 
 include_directories(/usr/include/openssl)
 link_directories(/usr/lib/x86_64-linux-gnu)

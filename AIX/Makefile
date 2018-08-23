@@ -11,7 +11,7 @@ OPENSSL = ../openssl
 CFLAGS	= -O $(WITH_DEBUG) -I $(OPENSSL)/include 
 
 LDFLAGS = -L$(OPENSSL)
-LDLIBS = -lcrypto
+LDLIBS = -lcrypto -lssl
 
 MAN	= sscep.8
 PROG	= sscep
@@ -20,7 +20,7 @@ OBJS    = sscep.o init.o net.o sceputils.o pkcs7.o ias.o fileutils.o configurati
 all: $(PROG)_static $(PROG)_dyn
 
 $(PROG)_static: $(OBJS)
-	$(CC) $(CFLAGS) -o $(PROG)_static $(OBJS) $(OPENSSL)/libcrypto.a
+	$(CC) $(CFLAGS) -o $(PROG)_static $(OBJS) $(OPENSSL)/libcrypto.a $(OPENSSL)/libssl.a
 
 $(PROG)_dyn: $(OBJS)
 	$(CC) $(CFLAGS) -o $(PROG)_dyn $(OBJS) $(LDLIBS) $(LDFLAGS)

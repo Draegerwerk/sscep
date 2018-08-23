@@ -535,7 +535,6 @@ main(int argc, char **argv) {
 
             }
 
-
             if (d_flag) {
                 printf("%s: requesting CA certificate\n", pname);
                 fprintf(stdout, "%s: scep msg: %s", pname,
@@ -547,7 +546,7 @@ main(int argc, char **argv) {
              * Response is written to http_response struct "reply".
              */
             reply.payload = NULL;
-            if ((c = send_msg(&reply, http_string, host_name,
+           if ((c = send_msg(&reply, http_string, host_name,
                               host_port, operation_flag)) == 1) {
                 fprintf(stderr, "%s: error while sending "
                                 "message\n", pname);
@@ -673,8 +672,7 @@ main(int argc, char **argv) {
 
                 scep_t.reply_payload = reply.payload;
                 scep_t.reply_len = reply.bytes;
-                scep_t.request_type = SCEP_MIME_GETNEXTCA;
-
+                scep_t.request_type = SCEP_MIME_GETNEXTCA; 
                 pkcs7_verify_unwrap(&scep_t, C_char);
 
                 //pkcs7_unwrap(&scep_t);

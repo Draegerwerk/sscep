@@ -89,16 +89,7 @@ send_msg(struct http_reply *http, char *msg, char *host, int port, int operation
 
     // SSL specific connection stuff
     if (ssl_flag) {
-        OpenSSL_add_all_algorithms();
-        ERR_load_BIO_strings();
-        ERR_load_crypto_strings();
-        SSL_load_error_strings();
-
-
-        if(SSL_library_init() < 0)
-            perror("Could not initialize the OpenSSL library !\n");
-
-        method = SSLv23_client_method();
+        method = TLS_client_method();
 
         if ( (ctx = SSL_CTX_new(method)) == NULL)
             perror("Unable to create a new SSL context structure.\n");
