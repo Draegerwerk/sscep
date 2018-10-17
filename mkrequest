@@ -53,8 +53,8 @@ UNSTRUCTURED_ADDRESS=
 SERIAL_NUMBER=
 
 
-# RSA key length, minimum of 1024 recommended.
-KEYBITS=1024
+# RSA key length, minimum of 2048 recommended.
+KEYBITS=2048
 
 #
 # NO NEED FOR EDITING BELOW THIS LINE
