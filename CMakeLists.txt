@@ -1,12 +1,6 @@
 cmake_minimum_required(VERSION 3.5)
 
-include_directories(/usr/include/openssl)
-link_directories(/usr/lib/x86_64-linux-gnu)
-link_libraries("-static")
-
 SET(CMAKE_FIND_LIBRARY_SUFFIXES ".a")
-SET(BUILD_SHARED_LIBRARIES OFF)
-SET(CMAKE_EXE_LINKER_FLAGS "-static")
 
 add_executable(sscep sscep.c)
 target_sources(sscep
