@@ -1,16 +1,6 @@
-/configuration.o
-/engine.o
-/fileutils.o
-/ias.o
-/init.o
-/net.o
-/pkcs7.o
-/sceputils.o
-/sscep
-/sscep_static
-/sscep_dyn
-/sscep.o
-/.git_checkout
+# Project specific
+*.o
+sscep
 .idea
 Makefile
 cmake-build-debug/
@@ -19,3 +9,13 @@ cmake-build-debug/
 *.swp
 /tags
 
+# CMake
+CMakeCache.txt
+CMakeFiles
+CMakeScripts
+Testing
+Makefile
+cmake_install.cmake
+install_manifest.txt
+compile_commands.json
+CTestTestfile.cmake
