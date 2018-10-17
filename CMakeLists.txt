@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 3.5)
 
+find_package(OpenSSL 1.1.0 REQUIRED)
+
 SET(CMAKE_FIND_LIBRARY_SUFFIXES ".a")
 
 add_executable(sscep sscep.c)
