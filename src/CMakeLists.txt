@@ -1,6 +1,7 @@
 find_package(OpenSSL 1.1.0 REQUIRED)
 
-add_executable(sscep sscep.c)
+add_executable(sscep)
+
 target_sources(sscep
         PRIVATE
             conf.h
@@ -22,8 +23,8 @@ target_sources(sscep
             sscep.c
             sscep.h
         )
+
 target_link_libraries(sscep
-        PRIVATE
-            ssl
-            crypto
-            dl)
+	PRIVATE
+		${OPENSSL_LIBRARIES}
+)
