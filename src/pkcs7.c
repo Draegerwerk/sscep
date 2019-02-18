@@ -9,7 +9,10 @@
 #include "sscep.h"
 #include "ias.h"
 #include <openssl/x509.h>
+//#include <openssl/pkcs7.h>
 
+
+#define X509_ATTRIBUTE_STACK STACK_OF(X509_ATTRIBUTE)
 /*
  * Wrap data in PKCS#7 envelopes and base64-encode the result.
  * Data is PKCS#10 request in PKCSReq, or pkcs7_issuer_and_subject
@@ -29,7 +32,7 @@ int pkcs7_wrap(struct scep *s) {
 	STACK_OF(X509)		*recipients;
 	PKCS7			*p7enc;
 	PKCS7_SIGNER_INFO	*si;
-	STACK_OF(X509_ATTRIBUTE) *attributes;
+	X509_ATTRIBUTE_STACK *attributes;
 	X509			*signercert = NULL;
 	EVP_PKEY		*signerkey = NULL;
 	X509_REQ *reqcsr = NULL;
@@ -183,7 +186,7 @@ int pkcs7_wrap(struct scep *s) {
 
 	/* Create BIO for encryption  */
 	if (d_flag){
-		printf("\n %s: hexdump request payload \n", pname , i);
+		printf("\n %s: hexdump request payload %d\n", pname , i);
 		for(i=0; i < s->request_len; i++ ){
 			printf("%02x", s->request_payload[i]);
 		}
@@ -338,7 +341,7 @@ int pkcs7_verify_unwrap(struct scep *s , char * cachainfile ) {
 	STACK_OF(PKCS7_SIGNER_INFO)	*sk;
 	PKCS7				*p7;
 	PKCS7_SIGNER_INFO		*si;
-	STACK_OF(X509_ATTRIBUTE)	*attribs;
+    X509_ATTRIBUTE_STACK	*attribs;
 	char				*p;
 	unsigned char			buffer[1024];
 	X509				*recipientcert;
@@ -507,7 +510,7 @@ int pkcs7_unwrap(struct scep *s) {
 	STACK_OF(PKCS7_SIGNER_INFO)	*sk;
 	PKCS7				*p7enc;
 	PKCS7_SIGNER_INFO		*si;
-	STACK_OF(X509_ATTRIBUTE)	*attribs;
+	X509_ATTRIBUTE_STACK    *attribs;
 	char				*p;
 	unsigned char			buffer[1024];
 	X509				*recipientcert;
@@ -534,11 +537,11 @@ int pkcs7_unwrap(struct scep *s) {
 	}
 
 	 /* Make sure this is a signed PKCS#7 */
-        if (!PKCS7_type_is_signed(s->reply_p7)) {
+    if (!PKCS7_type_is_signed(s->reply_p7)) {
 		fprintf(stderr, "%s: PKCS#7 is not signed!\n", pname);
 		ERR_print_errors_fp(stderr);
 		exit (SCEP_PKISTATUS_P7);
-        }
+    }
 
 	/* Create BIO for content data */
 	pkcs7bio = PKCS7_dataInit(s->reply_p7, NULL);
@@ -551,7 +554,7 @@ int pkcs7_unwrap(struct scep *s) {
 	/* Copy enveloped data from PKCS#7 */
 	outbio = BIO_new(BIO_s_mem());
 	used = 0;
-	for (;;) {
+	while (1) {
 		bytes = BIO_read(pkcs7bio, buffer, sizeof(buffer));
 		used += bytes;
 		if (bytes <= 0) break;
@@ -593,8 +596,7 @@ int pkcs7_unwrap(struct scep *s) {
 	}
 
 	/* Transaction id */
-	if ((get_signed_attribute(attribs, nid_transId,
-			V_ASN1_PRINTABLESTRING, &p)) == 1) {
+	if ((get_signed_attribute(si, nid_transId, V_ASN1_PRINTABLESTRING, &p)) == 1) {
 		fprintf(stderr, "%s: cannot find transId\n", pname);
 		exit (SCEP_PKISTATUS_P7);
 	}
@@ -605,7 +607,7 @@ int pkcs7_unwrap(struct scep *s) {
 		exit (SCEP_PKISTATUS_P7);
 	}
 	/* Message type, should be of type CertRep */
-	if ((i = get_signed_attribute(attribs, nid_messageType,
+	if ((i = get_signed_attribute(si, nid_messageType,
 			V_ASN1_PRINTABLESTRING, &p)) == 1) {
 		fprintf(stderr, "%s: cannot find messageType\n", pname);
 		exit (SCEP_PKISTATUS_P7);
@@ -618,7 +620,7 @@ int pkcs7_unwrap(struct scep *s) {
 		printf("%s: reply message type is good\n", pname);
 
 	/* Sender and recipient nonces: */
-	if ((i = get_signed_attribute(attribs, nid_senderNonce,
+	if ((i = get_signed_attribute(si, nid_senderNonce,
 			V_ASN1_OCTET_STRING, &p)) == 1) {
 		if (v_flag)
 			fprintf(stderr, "%s: cannot find senderNonce\n", pname);
@@ -634,7 +636,7 @@ int pkcs7_unwrap(struct scep *s) {
 		}
 		printf("\n");
 	}
-	if (( i = get_signed_attribute(attribs, nid_recipientNonce,
+	if (( i = get_signed_attribute(si, nid_recipientNonce,
 			V_ASN1_OCTET_STRING, &p)) == 1) {
 		fprintf(stderr, "%s: cannot find recipientNonce\n", pname);
 		exit (SCEP_PKISTATUS_P7);
@@ -662,7 +664,7 @@ int pkcs7_unwrap(struct scep *s) {
 		}
 	}
 	/* Get pkiStatus */
-	if ((i = get_signed_attribute(attribs, nid_pkiStatus,
+	if ((i = get_signed_attribute(si, nid_pkiStatus,
 			V_ASN1_PRINTABLESTRING, &p)) == 1) {
 		fprintf(stderr, "%s: cannot find pkiStatus\n", pname);
 		/* This is a mandatory attribute.. */
@@ -688,7 +690,7 @@ int pkcs7_unwrap(struct scep *s) {
 
 	/* Get failInfo */
 	if (s->pki_status == SCEP_PKISTATUS_FAILURE) {
-		if ((i = get_signed_attribute(attribs, nid_failInfo,
+		if ((i = get_signed_attribute(si, nid_failInfo,
 			V_ASN1_PRINTABLESTRING, &p)) == 1) {
 				fprintf(stderr, "%s: cannot find failInfo\n",
 						pname);
@@ -721,9 +723,9 @@ int pkcs7_unwrap(struct scep *s) {
 					SCEP_FAILINFO_BADCERTID_STR);
 				break;
 			default:
-				fprintf(stderr, "%s: wrong failInfo in "							"reply\n",pname);
-				exit (SCEP_PKISTATUS_P7);
+				fprintf(stderr, "%s: wrong failInfo in reply\n",pname);
 		}
+		exit (SCEP_PKISTATUS_P7);
 	}
 	/* If FAILURE or PENDING, we can return */
 	if (s->pki_status != SCEP_PKISTATUS_SUCCESS) {
@@ -786,7 +788,7 @@ int pkcs7_unwrap(struct scep *s) {
 }
 
 /* Add signed attributes */
-int add_attribute_string(STACK_OF(X509_ATTRIBUTE) *attrs, int nid, char *buffer){
+int add_attribute_string(X509_ATTRIBUTE_STACK *attrs, int nid, char *buffer){
 	ASN1_STRING     *asn1_string = NULL;
 	X509_ATTRIBUTE  *x509_a;
 	int		c;
@@ -808,7 +810,7 @@ int add_attribute_string(STACK_OF(X509_ATTRIBUTE) *attrs, int nid, char *buffer)
 	return (0);
 
 }
-int add_attribute_octet(STACK_OF(X509_ATTRIBUTE) *attrs, int nid, char *buffer,
+int add_attribute_octet (X509_ATTRIBUTE_STACK *attrs, int nid, char *buffer,
 		int len) {
 	ASN1_STRING     *asn1_string = NULL;
 	X509_ATTRIBUTE  *x509_a;
@@ -832,25 +834,24 @@ int add_attribute_octet(STACK_OF(X509_ATTRIBUTE) *attrs, int nid, char *buffer,
 
 }
 
-/* Find signed attributes */
-int get_signed_attribute(STACK_OF(X509_ATTRIBUTE) *attribs, int nid,int type, char **buffer){
-	int		rc; 
-	ASN1_TYPE	*asn1_type;
-	unsigned int	len;
+// Find signed attributes
+int get_signed_attribute (PKCS7_SIGNER_INFO *si, int nid, int type, char **buffer){
+	ASN1_TYPE *asn1_type;
+	int len;
 
-	/* Find attribute */
-	rc = get_attribute(attribs, nid, &asn1_type);
-	if (rc == 1) {
-		if (v_flag)
-			fprintf(stderr, "%s: error finding attribute\n",pname);	
-		return (1);
-	}
+	if (v_flag)
+		printf("%s: finding attribute %s\n", pname,
+			OBJ_nid2sn(nid));
+
+	// Find attribute
+	asn1_type = PKCS7_get_signed_attribute(si, nid);
+
 	if (ASN1_TYPE_get(asn1_type) != type) {
 		fprintf(stderr, "%s: wrong ASN.1 type\n",pname);	
 		exit (SCEP_PKISTATUS_P7);
 	}
 
-	/* Copy data */
+	// Copy data
 	len = ASN1_STRING_length(asn1_type->value.asn1_string);
 	if (len <= 0) {
 		return (1);
@@ -866,9 +867,9 @@ int get_signed_attribute(STACK_OF(X509_ATTRIBUTE) *attribs, int nid,int type, ch
 			pname);	
 		exit (SCEP_PKISTATUS_P7);
 	}
-	memcpy(*buffer, ASN1_STRING_data(asn1_type->value.asn1_string), len);
+	memcpy(*buffer, ASN1_STRING_get0_data(asn1_type->value.asn1_string), len);
 
-	/* Add null terminator if it's a PrintableString */
+	// Add null terminator if it's a PrintableString
 	if (type == V_ASN1_PRINTABLESTRING) {
 		(*buffer)[len] = 0;
 		len++;
@@ -877,40 +878,3 @@ int get_signed_attribute(STACK_OF(X509_ATTRIBUTE) *attribs, int nid,int type, ch
 	return (0);
 } 
 
-int get_attribute(STACK_OF(X509_ATTRIBUTE) *attribs, int required_nid,
-				ASN1_TYPE **asn1_type) {
-	int		i;
-	ASN1_OBJECT	*asn1_obj = NULL;
-	X509_ATTRIBUTE	*x509_attrib = X509_ATTRIBUTE_new();
-
-	if (v_flag)
-		printf("%s: finding attribute %s\n", pname,
-			OBJ_nid2sn(required_nid));
-	*asn1_type = NULL;
-	asn1_obj = OBJ_nid2obj(required_nid);
-	if (asn1_obj == NULL) {
-		fprintf(stderr, "%s: error creating ASN.1 object\n", pname);
-		ERR_print_errors_fp(stderr);
-		exit (SCEP_PKISTATUS_P7);
-	}
-	/* Find attribute */
-	for (i = 0; i < sk_X509_ATTRIBUTE_num(attribs); i++) {
-		x509_attrib = sk_X509_ATTRIBUTE_value(attribs, i);
-		if (OBJ_cmp(X509_ATTRIBUTE_get0_object(x509_attrib), asn1_obj) == 0) {
-			if ((X509_ATTRIBUTE_get0_type(x509_attrib, 0)) &&
-			  (sk_ASN1_TYPE_num(X509_ATTRIBUTE_get0_type(x509_attrib, 0)) != 0)) {
-				if (*asn1_type != NULL) {
-					fprintf(stderr, "%s: no value found",
-							pname);
-					exit (SCEP_PKISTATUS_P7);
-				}
-			*asn1_type =
-				sk_ASN1_TYPE_value(X509_ATTRIBUTE_get0_type(x509_attrib, 0), 0);
-			}
-		}
-	}
-
-	if (*asn1_type == NULL)
-		return (1);
-	return (0);
-} 
