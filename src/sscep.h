@@ -344,7 +344,6 @@ int add_attribute_octet(STACK_OF(X509_ATTRIBUTE) *, int, char *, int);
 
 /* Find signed attributes */
 int get_signed_attribute(PKCS7_SIGNER_INFO *, int, int, char **);
-int get_attribute(STACK_OF(X509_ATTRIBUTE) *, int, ASN1_TYPE *);
 
 /*PKCS#7 decode message without SCEP attribute verification*/
 int pkcs7_verify_unwrap(struct scep *s, char * cachainfile );
