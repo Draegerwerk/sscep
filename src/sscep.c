@@ -13,8 +13,7 @@
 
 #include "sscep.h"
 
-static char *
-handle_serial(char *serial) {
+static char *handle_serial(char *serial) {
     int hex = NULL != strchr(serial, ':');
 
     /* Convert serial to a decimal serial when input is
@@ -56,8 +55,7 @@ handle_serial(char *serial) {
     return serial;
 } /* handle_serial */
 
-int
-main(int argc, char **argv) {
+int main(int argc, char **argv) {
     //ENGINE *e = NULL;
     int c, host_port = 80, count = 1;
     char *host_name, *p, *dir_name = NULL;
@@ -761,7 +759,6 @@ main(int argc, char **argv) {
                 read_key(&rsa, k_char);
             }
 
-
             if ((K_flag && !O_flag) || (!K_flag && O_flag)) {
                 fprintf(stderr, "%s: -O also requires -K (and vice-versa)\n", pname);
                 exit(SCEP_PKISTATUS_FILE);
@@ -787,7 +784,6 @@ main(int argc, char **argv) {
                     printf("%s:  Read request with transaction id: %s\n", pname, scep_t.transaction_id);
                 }
             }
-
 
             if (operation_flag != SCEP_OPERATION_ENROLL)
                 goto not_enroll;
@@ -938,7 +934,7 @@ main(int argc, char **argv) {
         }
 
         /* Forge the HTTP message */
-        /*	snprintf(http_string, sizeof(http_string),
+        /* snprintf(http_string, sizeof(http_string),
                 "GET %s%s?operation="
                 "PKIOperation&message="
                 "%s HTTP/1.0\r\n\r\n",

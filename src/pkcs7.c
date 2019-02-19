@@ -1,10 +1,9 @@
-/*
- * sscep -- Simple SCEP client implementation
- * Copyright (c) Jarkko Turkulainen 2003. All rights reserved.
- * See the file COPYRIGHT for licensing information.
- */
+// sscep -- Simple SCEP client implementation
+// Copyright (c) Jarkko Turkulainen 2003. All rights reserved.
+// See the file COPYRIGHT for licensing information.
+ 
 
-/* PKCS#7 routines */
+// PKCS#7 routines 
 
 #include "sscep.h"
 #include "ias.h"
@@ -13,12 +12,11 @@
 
 
 #define X509_ATTRIBUTE_STACK STACK_OF(X509_ATTRIBUTE)
-/*
- * Wrap data in PKCS#7 envelopes and base64-encode the result.
- * Data is PKCS#10 request in PKCSReq, or pkcs7_issuer_and_subject
- * structure in GetCertInitial and PKCS7_ISSUER_AND_SERIAL in
- * GetCert and GETCrl.
- */
+// Wrap data in PKCS#7 envelopes and base64-encode the result.
+// Data is PKCS#10 request in PKCSReq, or pkcs7_issuer_and_subject
+// structure in GetCertInitial and PKCS7_ISSUER_AND_SERIAL in
+// GetCert and GETCrl.
+ 
 int pkcs7_wrap(struct scep *s) {
 	BIO			*databio = NULL;
 	BIO			*encbio = NULL;
@@ -37,38 +35,37 @@ int pkcs7_wrap(struct scep *s) {
 	EVP_PKEY		*signerkey = NULL;
 	X509_REQ *reqcsr = NULL;
 
-	/* Create a new sender nonce for all messages 
-	 * XXXXXXXXXXXXXX should it be per transaction? */
+	// Create a new sender nonce for all messages 
+	// XXXXXXXXXXXXXX should it be per transaction? 
 	s->sender_nonce_len = 16;
 	s->sender_nonce = malloc(s->sender_nonce_len); 
 	RAND_bytes(s->sender_nonce, s->sender_nonce_len);
 
-	/* Prepare data payload */
+	// Prepare data payload 
 	switch(s->request_type) {
 		case SCEP_REQUEST_PKCSREQ:
-			/*
-			 * Set printable message type
-			 * We set this later as an autheticated attribute
-			 * "messageType".
-			 */
+			// Set printable message type
+			// We set this later as an autheticated attribute
+			// "messageType".
+			 
 			s->request_type_str = SCEP_REQUEST_PKCSREQ_STR;
 
-			/* Signer cert */
+			// Signer cert 
 			signercert = s->signercert;
 			signerkey = s->signerkey;
 
-			/* Create inner PKCS#7  */
+			// Create inner PKCS#7  
 			if (v_flag)
 				printf("%s: creating inner PKCS#7\n", pname);
 
-			/* Read request in memory bio */
+			// Read request in memory bio 
 			databio = BIO_new(BIO_s_mem());
 			if ((rc = i2d_X509_REQ_bio(databio, request)) <= 0) {
 				fprintf(stderr, "%s: error writing "
 					"certificate request in bio\n", pname);
 				ERR_print_errors_fp(stderr);
 				exit (SCEP_PKISTATUS_P7);
-			}else{
+			} else {
 				if (v_flag)
 					printf("%s: inner PKCS#7 in mem BIO \n", pname);
 
@@ -77,18 +74,18 @@ int pkcs7_wrap(struct scep *s) {
 
 		case SCEP_REQUEST_GETCERTINIT:
 
-			/* Set printable message type */
+			// Set printable message type 
 			s->request_type_str = SCEP_REQUEST_GETCERTINIT_STR;
 
-			/* Signer cert */
+			// Signer cert 
 			signercert = s->signercert;
 			signerkey = s->signerkey;
 
-			/* Create inner PKCS#7  */
+			// Create inner PKCS#7  
 			if (v_flag)
 				printf("%s: creating inner PKCS#7\n", pname);
 
-			/* Read data in memory bio */
+			// Read data in memory bio 
 			databio = BIO_new(BIO_s_mem());
 			if ((rc = i2d_PKCS7_ISSUER_AND_SUBJECT_bio(databio,
 						s->ias_getcertinit)) <= 0) {
@@ -100,14 +97,14 @@ int pkcs7_wrap(struct scep *s) {
 			break;
 
 		case SCEP_REQUEST_GETCERT:
-			/* Set printable message type */
+			// Set printable message type 
 			s->request_type_str = SCEP_REQUEST_GETCERT_STR;
 
-			/* Signer cert */
+			// Signer cert 
 			signercert = localcert;
 			signerkey = rsa;
 
-			/* Read data in memory bio */
+			// Read data in memory bio 
 			databio = BIO_new(BIO_s_mem());
 			if ((rc = i2d_PKCS7_ISSUER_AND_SERIAL_bio(databio,
 						s->ias_getcert)) <= 0) {
@@ -119,14 +116,14 @@ int pkcs7_wrap(struct scep *s) {
 			break;
 
 		case SCEP_REQUEST_GETCRL:
-			/* Set printable message type */
+			// Set printable message type 
 			s->request_type_str = SCEP_REQUEST_GETCRL_STR;
 
-			/* Signer cert */
+			// Signer cert 
 			signercert = localcert;
 			signerkey = rsa;
 
-			/* Read data in memory bio */
+			// Read data in memory bio 
 			databio = BIO_new(BIO_s_mem());
 			if ((rc = i2d_PKCS7_ISSUER_AND_SERIAL_bio(databio,
 						s->ias_getcrl)) <= 0) {
@@ -145,9 +142,9 @@ int pkcs7_wrap(struct scep *s) {
 	}
 	BIO_set_flags(databio, BIO_FLAGS_MEM_RDONLY);
 
-	/* Below this is the common code for all request_type */
+	// Below this is the common code for all request_type 
 
-	/* Read in the payload */
+	// Read in the payload 
 	s->request_len = BIO_get_mem_data(databio, &s->request_payload);
 	if (v_flag){
 		printf("%s: request data dump \n", pname);
@@ -158,24 +155,24 @@ int pkcs7_wrap(struct scep *s) {
 		printf("%s: data payload size: %d bytes\n", pname,
 				s->request_len);
 
-
-	/* Create encryption certificate stack */
+	// Create encryption certificate stack 
 	if ((recipients = sk_X509_new(NULL)) == NULL) {
 		fprintf(stderr, "%s: error creating "
 					"certificate stack\n", pname);
 		ERR_print_errors_fp(stderr);
 		exit (SCEP_PKISTATUS_P7);
 	}
-	/* Use different CA cert for encryption if requested */
+
+	// Use different CA cert for encryption if requested 
 	if (e_flag) {
 		if (sk_X509_push(recipients, encert) <= 0) {
 			fprintf(stderr, "%s: error adding recipient encryption "
 					"certificate\n", pname);
 			ERR_print_errors_fp(stderr);
 			exit (SCEP_PKISTATUS_P7);
-		}
-	/* Use same CA cert also for encryption */
-	} else {
+	    }
+    } else {
+	    // Use same CA cert also for encryption
 		if (sk_X509_push(recipients, cacert) <= 0) {
 			fprintf(stderr, "%s: error adding recipient encryption "
 					"certificate\n", pname);
@@ -184,25 +181,23 @@ int pkcs7_wrap(struct scep *s) {
 		}
 	}
 
-	/* Create BIO for encryption  */
+	// Create BIO for encryption  
 	if (d_flag){
 		printf("\n %s: hexdump request payload %d\n", pname , i);
 		for(i=0; i < s->request_len; i++ ){
 			printf("%02x", s->request_payload[i]);
 		}
 		printf("\n %s: hexdump payload %d \n", pname , i);
-
 	}
-
 
 	if ((encbio = BIO_new_mem_buf(s->request_payload,
 				s->request_len)) == NULL) {
-		fprintf(stderr, "%s: error creating data " "bio\n", pname);
+		fprintf(stderr, "%s: error creating data bio\n", pname);
 		ERR_print_errors_fp(stderr);
 		exit (SCEP_PKISTATUS_P7);
 	}
 
-	/* Encrypt */
+	// Encrypt 
 	if (!(p7enc = PKCS7_encrypt(recipients, encbio,
 					enc_alg, PKCS7_BINARY))) {
 		fprintf(stderr, "%s: request payload encrypt failed\n", pname);
@@ -212,7 +207,7 @@ int pkcs7_wrap(struct scep *s) {
 	if (v_flag)
 		printf("%s: successfully encrypted payload\n", pname);
 
-	/* Write encrypted data */
+	// Write encrypted data 
 	memorybio = BIO_new(BIO_s_mem());
 	if (i2d_PKCS7_bio(memorybio, p7enc) <= 0) {
 		fprintf(stderr, "%s: error writing encrypted data\n", pname);
@@ -225,12 +220,12 @@ int pkcs7_wrap(struct scep *s) {
 	if (v_flag)
 		printf("%s: envelope size: %d bytes\n", pname, len);
 	if (d_flag) {
-		printf("%s: printing PEM fomatted PKCS#7\n", pname);
+		printf("%s: printing PEM formatted PKCS#7\n", pname);
 		PEM_write_PKCS7(stdout, p7enc);
 	}
 	BIO_free(memorybio);
 
-	/* Create outer PKCS#7  */
+	// Create outer PKCS#7  
 	if (v_flag)
 		printf("%s: creating outer PKCS#7\n", pname);
 	s->request_p7 = PKCS7_new();
@@ -246,7 +241,7 @@ int pkcs7_wrap(struct scep *s) {
 		exit (SCEP_PKISTATUS_P7);
 	}
 
-	/* Add signer certificate  and signature */
+	// Add signer certificate  and signature 
 	PKCS7_add_certificate(s->request_p7, signercert);
 	if ((si = PKCS7_add_signature(s->request_p7,
 				signercert, signerkey, sig_alg)) == NULL) {
@@ -257,7 +252,7 @@ int pkcs7_wrap(struct scep *s) {
 	if (v_flag)
 		printf("%s: signature added successfully\n", pname);
 
-	/* Set signed attributes */
+	// Set signed attributes 
 	if (v_flag)
 		printf("%s: adding signed attributes\n", pname);
 	attributes = sk_X509_ATTRIBUTE_new_null();	
@@ -266,7 +261,7 @@ int pkcs7_wrap(struct scep *s) {
 	add_attribute_octet(attributes, nid_senderNonce, s->sender_nonce,
 			s->sender_nonce_len);
 	PKCS7_set_signed_attributes(si, attributes);
-	/* Add contentType */
+	// Add contentType 
 	if (!PKCS7_add_signed_attribute(si, NID_pkcs9_contentType,
 			V_ASN1_OBJECT, OBJ_nid2obj(NID_pkcs7_data))) {
 		fprintf(stderr, "%s: error adding NID_pkcs9_contentType\n",
@@ -275,7 +270,7 @@ int pkcs7_wrap(struct scep *s) {
 		exit (SCEP_PKISTATUS_P7);
 	}
 
-	/* Create new content */
+	// Create new content 
 	if (!PKCS7_content_new(s->request_p7, NID_pkcs7_data)) {
 		fprintf(stderr, "%s: failed setting PKCS#7 content type\n",
 					pname);
@@ -283,7 +278,7 @@ int pkcs7_wrap(struct scep *s) {
 		exit (SCEP_PKISTATUS_P7);
 	}
 
-	/* Write data  */
+	// Write data  
 	pkcs7bio = PKCS7_dataInit(s->request_p7, NULL);
 	if (pkcs7bio == NULL) {
 		fprintf(stderr, "%s: error opening bio for writing PKCS#7 "
@@ -299,7 +294,7 @@ int pkcs7_wrap(struct scep *s) {
 	if (v_flag)
 		printf("%s: PKCS#7 data written successfully\n", pname);
 
-	/* Finalize PKCS#7  */
+	// Finalize PKCS#7
 	if (!PKCS7_dataFinal(s->request_p7, pkcs7bio)) {
 		fprintf(stderr, "%s: error finalizing outer PKCS#7\n", pname);
 		ERR_print_errors_fp(stderr);
@@ -310,16 +305,16 @@ int pkcs7_wrap(struct scep *s) {
 		PEM_write_PKCS7(stdout, s->request_p7);
 	}
 
-	/* base64-encode the data */
+	// base64-encode the data 
 	if (v_flag)
 		printf("%s: applying base64 encoding\n",pname);
 
-	/* Create base64 filtering bio */
+	// Create base64 filtering bio 
 	memorybio = BIO_new(BIO_s_mem());
 	base64bio = BIO_new(BIO_f_base64());
 	outbio = BIO_push(base64bio, memorybio);
 
-	/* Copy PKCS#7 */
+	// Copy PKCS#7 
 	i2d_PKCS7_bio(outbio, s->request_p7);
 	BIO_flush(outbio);
 	BIO_set_flags(memorybio, BIO_FLAGS_MEM_RDONLY);
@@ -354,10 +349,10 @@ int pkcs7_verify_unwrap(struct scep *s , char * cachainfile ) {
 	X509_STORE *cert_store=NULL;
 
 
-	/* Create new memory BIO for outer PKCS#7 */
+	// Create new memory BIO for outer PKCS#7 
 	memorybio = BIO_new(BIO_s_mem());
 
-	/* Read in data */
+	// Read in data 
 	if (v_flag)
 		printf("%s: reading outer PKCS#7\n",pname);
 	if ((len = BIO_write(memorybio, s->reply_payload, s->reply_len)) <= 0) {
@@ -374,14 +369,14 @@ int pkcs7_verify_unwrap(struct scep *s , char * cachainfile ) {
 		PEM_write_PKCS7(stdout, s->reply_p7);
 	}
 
-	 /* Make sure this is a signed PKCS#7 */
+	 // Make sure this is a signed PKCS#7 
         if (!PKCS7_type_is_signed(s->reply_p7)) {
 		fprintf(stderr, "%s: PKCS#7 is not signed!\n", pname);
 		ERR_print_errors_fp(stderr);
 		exit (SCEP_PKISTATUS_P7);
         }
 
-	/* Create BIO for content data */
+	// Create BIO for content data 
 	pkcs7bio = PKCS7_dataInit(s->reply_p7, NULL);
 	if (pkcs7bio == NULL) {
 		fprintf(stderr, "%s: cannot get PKCS#7 data\n", pname);
@@ -389,7 +384,7 @@ int pkcs7_verify_unwrap(struct scep *s , char * cachainfile ) {
 		exit (SCEP_PKISTATUS_P7);
 	}
 
-	/* Copy enveloped data from PKCS#7 */
+	// Copy enveloped data from PKCS#7 
 	outbio = BIO_new(BIO_s_mem());
 	used = 0;
 	for (;;) {
@@ -403,7 +398,7 @@ int pkcs7_verify_unwrap(struct scep *s , char * cachainfile ) {
 		printf("%s: PKCS#7 contains %d bytes of signed data\n",
 			pname, used);
 
-	/* Get signer */
+	// Get signer 
 	sk = PKCS7_get_signer_info(s->reply_p7);
 	if (sk == NULL) {
 		fprintf(stderr, "%s: cannot get signer info!\n", pname);
@@ -411,15 +406,13 @@ int pkcs7_verify_unwrap(struct scep *s , char * cachainfile ) {
 		exit (SCEP_PKISTATUS_P7);
 	}
 
-	/* Verify signature */
+	// Verify signature 
 	if (v_flag)
 		printf("%s: verifying signature\n", pname);
 	si = sk_PKCS7_SIGNER_INFO_value(sk, 0);
 
 	signercert = PKCS7_cert_from_signer_info(s->reply_p7,si);
 	if(signercert == NULL ) printf("%s: Can't read signer cert from pkcs7\n", pname);
-
-//int reson=0;
 
 	if (PKCS7_signatureVerify(pkcs7bio, s->reply_p7, si,signercert ) <= 0) {
 		//reson = ERR_GET_REASON(ERR_peek_last_error());
@@ -430,9 +423,7 @@ int pkcs7_verify_unwrap(struct scep *s , char * cachainfile ) {
 	if (v_flag)
 		printf("%s: signature ok\n", pname);
 
-	/*verify certificates*/
-
-
+	//verify certificates
 	cert_store=X509_STORE_new();
 	if(cert_store == NULL)
 		fprintf(stderr, "%s: error verifying certificates \n", pname);
@@ -457,7 +448,7 @@ int pkcs7_verify_unwrap(struct scep *s , char * cachainfile ) {
     	fprintf(stderr, "%s: The signer certificate verification failed \n", pname);
     }
 
-    /*Write pem encoded signer certificate */
+    //Write pem encoded signer certificate 
 	if(w_flag)
 	{
 
@@ -488,7 +479,7 @@ int pkcs7_verify_unwrap(struct scep *s , char * cachainfile ) {
 
 		(void)fclose(fp);
 	}
-	/* Copy enveloped data into PKCS#7 */
+	// Copy enveloped data into PKCS#7 
 	s->reply_p7 = d2i_PKCS7_bio(outbio, NULL);
 
 
@@ -498,10 +489,7 @@ int pkcs7_verify_unwrap(struct scep *s , char * cachainfile ) {
 	return (0);
 }
 
-
-/*
- * Unwrap PKCS#7 data and decrypt if necessary
- */
+// Unwrap PKCS#7 data and decrypt if necessary
 int pkcs7_unwrap(struct scep *s) {
 	BIO				*memorybio;
 	BIO				*outbio;
@@ -516,10 +504,10 @@ int pkcs7_unwrap(struct scep *s) {
 	X509				*recipientcert;
 	EVP_PKEY			*recipientkey;
 
-	/* Create new memory BIO for outer PKCS#7 */
+	// Create new memory BIO for outer PKCS#7 
 	memorybio = BIO_new(BIO_s_mem());
 
-	/* Read in data */
+	// Read in data 
 	if (v_flag)
 		printf("%s: reading outer PKCS#7\n",pname);
 	if ((len = BIO_write(memorybio, s->reply_payload, s->reply_len)) <= 0) {
@@ -536,14 +524,14 @@ int pkcs7_unwrap(struct scep *s) {
 		PEM_write_PKCS7(stdout, s->reply_p7);
 	}
 
-	 /* Make sure this is a signed PKCS#7 */
+	 // Make sure this is a signed PKCS#7 
     if (!PKCS7_type_is_signed(s->reply_p7)) {
 		fprintf(stderr, "%s: PKCS#7 is not signed!\n", pname);
 		ERR_print_errors_fp(stderr);
 		exit (SCEP_PKISTATUS_P7);
     }
 
-	/* Create BIO for content data */
+	// Create BIO for content data 
 	pkcs7bio = PKCS7_dataInit(s->reply_p7, NULL);
 	if (pkcs7bio == NULL) {
 		fprintf(stderr, "%s: cannot get PKCS#7 data\n", pname);
@@ -551,7 +539,7 @@ int pkcs7_unwrap(struct scep *s) {
 		exit (SCEP_PKISTATUS_P7);
 	}
 
-	/* Copy enveloped data from PKCS#7 */
+	// Copy enveloped data from PKCS#7 
 	outbio = BIO_new(BIO_s_mem());
 	used = 0;
 	while (1) {
@@ -565,7 +553,7 @@ int pkcs7_unwrap(struct scep *s) {
 		printf("%s: PKCS#7 contains %d bytes of enveloped data\n",
 			pname, used);
 
-	/* Get signer */
+	// Get signer 
 	sk = PKCS7_get_signer_info(s->reply_p7);
 	if (sk == NULL) {
 		fprintf(stderr, "%s: cannot get signer info!\n", pname);
@@ -573,7 +561,7 @@ int pkcs7_unwrap(struct scep *s) {
 		exit (SCEP_PKISTATUS_P7);
 	}
 
-	/* Verify signature */
+	// Verify signature 
 	if (v_flag)
 		printf("%s: verifying signature\n", pname);
 	si = sk_PKCS7_SIGNER_INFO_value(sk, 0);
@@ -585,7 +573,7 @@ int pkcs7_unwrap(struct scep *s) {
 	if (v_flag)
 		printf("%s: signature ok\n", pname);
 
-	/* Get signed attributes */
+	// Get signed attributes 
 	if (v_flag)
 		printf("%s: finding signed attributes\n", pname);
 	attribs = PKCS7_get_signed_attributes(si);
@@ -595,7 +583,7 @@ int pkcs7_unwrap(struct scep *s) {
 		exit (SCEP_PKISTATUS_P7);
 	}
 
-	/* Transaction id */
+	// Transaction id 
 	if ((get_signed_attribute(si, nid_transId, V_ASN1_PRINTABLESTRING, &p)) == 1) {
 		fprintf(stderr, "%s: cannot find transId\n", pname);
 		exit (SCEP_PKISTATUS_P7);
@@ -606,7 +594,7 @@ int pkcs7_unwrap(struct scep *s) {
 		fprintf(stderr, "%s: transaction id mismatch\n", pname);
 		exit (SCEP_PKISTATUS_P7);
 	}
-	/* Message type, should be of type CertRep */
+	// Message type, should be of type CertRep 
 	if ((i = get_signed_attribute(si, nid_messageType,
 			V_ASN1_PRINTABLESTRING, &p)) == 1) {
 		fprintf(stderr, "%s: cannot find messageType\n", pname);
@@ -619,14 +607,14 @@ int pkcs7_unwrap(struct scep *s) {
 	if (v_flag)
 		printf("%s: reply message type is good\n", pname);
 
-	/* Sender and recipient nonces: */
+	// Sender and recipient nonces: 
 	if ((i = get_signed_attribute(si, nid_senderNonce,
 			V_ASN1_OCTET_STRING, &p)) == 1) {
 		if (v_flag)
 			fprintf(stderr, "%s: cannot find senderNonce\n", pname);
-		/* Some implementations don't put in on reply */
-		/* XXXXXXXXXXXXXXXXXXXXXXXXXXXXX
-		exit (SCEP_PKISTATUS_P7); */
+		// Some implementations don't put in on reply 
+		// XXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+		exit (SCEP_PKISTATUS_P7); 
 	}
 	s->reply_sender_nonce = p;
 	if (v_flag) {
@@ -649,25 +637,24 @@ int pkcs7_unwrap(struct scep *s) {
 		}
 		printf("\n");
 	}
-	/*
-	 * Compare recipient nonce to original sender nonce 
-	 * The draft says nothing about this, but it makes sense to me..
-	 * XXXXXXXXXXXXXX check
-	 */
+	// Compare recipient nonce to original sender nonce 
+	// The draft says nothing about this, but it makes sense to me..
+	// XXXXXXXXXXXXXX check
+	 
 	for (i = 0; i < 16; i++) {
 		if (s->sender_nonce[i] != s->reply_recipient_nonce[i]) {
 			if (v_flag)
 				fprintf(stderr, "%s: corrupted nonce "
 					"received\n", pname);
-			/* Instead of exit, break out */
+			// Instead of exit, break out 
 			break;
 		}
 	}
-	/* Get pkiStatus */
+	// Get pkiStatus 
 	if ((i = get_signed_attribute(si, nid_pkiStatus,
 			V_ASN1_PRINTABLESTRING, &p)) == 1) {
 		fprintf(stderr, "%s: cannot find pkiStatus\n", pname);
-		/* This is a mandatory attribute.. */
+		// This is a mandatory attribute.. 
 		exit (SCEP_PKISTATUS_P7);
 	}
 	switch (atoi(p)) {
@@ -688,7 +675,7 @@ int pkcs7_unwrap(struct scep *s) {
 			exit (SCEP_PKISTATUS_P7);
 	}
 
-	/* Get failInfo */
+	// Get failInfo 
 	if (s->pki_status == SCEP_PKISTATUS_FAILURE) {
 		if ((i = get_signed_attribute(si, nid_failInfo,
 			V_ASN1_PRINTABLESTRING, &p)) == 1) {
@@ -727,21 +714,21 @@ int pkcs7_unwrap(struct scep *s) {
 		}
 		exit (SCEP_PKISTATUS_P7);
 	}
-	/* If FAILURE or PENDING, we can return */
+	// If FAILURE or PENDING, we can return 
 	if (s->pki_status != SCEP_PKISTATUS_SUCCESS) {
-		/* There shouldn't be any more data... */
+		// There shouldn't be any more data... 
 		if (v_flag && (used != 0)) {
 			fprintf(stderr, "%s: illegal size of payload\n", pname);
 		}
 		return (0);
 	}
-	/* We got success and expect data */
+	// We got success and expect data 
 	if (used == 0) {
 		fprintf(stderr, "%s: illegal size of payload\n", pname);
 		exit (SCEP_PKISTATUS_P7);
 	}
 
-	/* Decrypt the inner PKCS#7 */
+	// Decrypt the inner PKCS#7 
 	if ((s->request_type == SCEP_REQUEST_PKCSREQ) ||
 	    (s->request_type == SCEP_REQUEST_GETCERTINIT)) {
 		recipientcert = s->signercert;
@@ -764,7 +751,7 @@ int pkcs7_unwrap(struct scep *s) {
 		PEM_write_PKCS7(stdout, p7enc);
 	}
 
-	/* Decrypt the data  */
+	// Decrypt the data  
 	outbio = BIO_new(BIO_s_mem());
 	if (v_flag)
 		printf("%s: decrypting inner PKCS#7\n",pname);
@@ -775,7 +762,7 @@ int pkcs7_unwrap(struct scep *s) {
 	}
 	BIO_flush(outbio);
 
-	/* Write decrypted data */
+	// Write decrypted data 
 	s->reply_len = BIO_get_mem_data(outbio, &s->reply_payload);
 	if (v_flag)
 		printf("%s: PKCS#7 payload size: %d bytes\n", pname,
@@ -784,10 +771,9 @@ int pkcs7_unwrap(struct scep *s) {
 	s->reply_p7 = d2i_PKCS7_bio(outbio, NULL);
 
 	return (0);
-
 }
 
-/* Add signed attributes */
+// Add signed attributes 
 int add_attribute_string(X509_ATTRIBUTE_STACK *attrs, int nid, char *buffer){
 	ASN1_STRING     *asn1_string = NULL;
 	X509_ATTRIBUTE  *x509_a;
@@ -808,8 +794,8 @@ int add_attribute_string(X509_ATTRIBUTE_STACK *attrs, int nid, char *buffer){
 		asn1_string);
 	sk_X509_ATTRIBUTE_push(attrs, x509_a);
 	return (0);
-
 }
+
 int add_attribute_octet (X509_ATTRIBUTE_STACK *attrs, int nid, char *buffer,
 		int len) {
 	ASN1_STRING     *asn1_string = NULL;
@@ -831,7 +817,6 @@ int add_attribute_octet (X509_ATTRIBUTE_STACK *attrs, int nid, char *buffer,
 		asn1_string);
 	sk_X509_ATTRIBUTE_push(attrs, x509_a);
 	return (0);
-
 }
 
 // Find signed attributes

@@ -14,8 +14,7 @@
 #include "sscep.h"
 
 /* Open the inner, decrypted PKCS7 and try to write CRL.  */ 
-void
-write_crl(struct scep *s) {
+void write_crl(struct scep *s) {
 	PKCS7			*p7;
 	STACK_OF(X509_CRL)	*crls;
 	X509_CRL		*crl;	
@@ -57,8 +56,7 @@ write_crl(struct scep *s) {
 	(void)fclose(fp);
 }
 
-static int 
-compare_subject(X509 * cert)
+static int compare_subject(X509 * cert)
 {
 	char buffer[1024];
 	int rc = X509_NAME_cmp(X509_get_subject_name(cert), X509_REQ_get_subject_name(request));
@@ -90,8 +88,7 @@ compare_subject(X509 * cert)
 } /* is_same_cn */
 
 /* Open the inner, decrypted PKCS7 and try to write cert.  */ 
-void
-write_local_cert(struct scep *s) {
+void write_local_cert(struct scep *s) {
 	PKCS7			*p7;
 	STACK_OF(X509)		*certs;
 	X509			*cert = NULL;
@@ -172,8 +169,7 @@ write_local_cert(struct scep *s) {
 }
 
 /* Open the inner, decrypted PKCS7 and try to write cert.  */ 
-void
-write_other_cert(struct scep *s) {
+void write_other_cert(struct scep *s) {
 	PKCS7			*p7;
 	STACK_OF(X509)		*certs;
 	X509			*cert = NULL;
@@ -240,8 +236,7 @@ write_other_cert(struct scep *s) {
 /*
  * Open the inner, decrypted PKCS7 and try to write CA/RA certificates 
  */
-int
-write_ca_ra(struct http_reply *s) {
+int write_ca_ra(struct http_reply *s) {
 	BIO			*bio;
 	PKCS7			*p7;
 	STACK_OF(X509)		*certs = NULL;
@@ -355,9 +350,7 @@ write_ca_ra(struct http_reply *s) {
 }
 
 /* Read CA cert and optionally, encyption CA cert */
-
-void
-read_ca_cert(void) {
+void read_ca_cert(void) {
 	/* Read CA cert file */
 	if (!c_flag || 
 #ifdef WIN32
@@ -400,9 +393,7 @@ read_ca_cert(void) {
 }
 
 /* Read local certificate (GetCert and GetCrl) */
-
-void
-read_cert(X509** cert, char* filename) {
+void read_cert(X509** cert, char* filename) {
         FILE *file;
 #ifdef WIN32
 	if ((fopen_s(&file, filename, "r")))
@@ -410,7 +401,7 @@ read_cert(X509** cert, char* filename) {
 	if (!(file = fopen(filename, "r")))
 #endif
 	{
-	        fprintf(stderr, "%s: cannot open cert file %s\n", pname, filename);
+	    fprintf(stderr, "%s: cannot open cert file %s\n", pname, filename);
 		exit (SCEP_PKISTATUS_FILE);
 	}
 	if (!PEM_read_X509(file, cert, NULL, NULL)) {
@@ -477,18 +468,17 @@ void read_cert_Engine(X509** cert, char* id, ENGINE *e, char* filename)
 }*/
 
 
-/* Read private key */
-
-void
-read_key(EVP_PKEY** key, char* filename) {
-        FILE *file;
-	/* Read private key file */
+// Read private key
+void read_key(EVP_PKEY** key, char* filename) {
+    FILE *file;
+    // Read private key file
+    if (
 #ifdef WIN32
-	if ((fopen_s(&file, filename, "r")))
+	(fopen_s(&file, filename, "r"))
 #else
-	if (!(file = fopen(filename, "r")))
+	!(file = fopen(filename, "r"))
 #endif
-	{
+    ) {
 	    fprintf(stderr, "%s: cannot open private key file %s\n", pname, filename);
 		exit (SCEP_PKISTATUS_FILE);
 	}
@@ -500,18 +490,17 @@ read_key(EVP_PKEY** key, char* filename) {
 	fclose(file);
 }
 
-/* Read PKCS#10 request */
+// Read PKCS#10 request
 
-void
-read_request(void) {
-	/* Read certificate request file */
+void read_request(void) {
+	// Read certificate request file
 	if (!r_flag || 
 #ifdef WIN32
-		(fopen_s(&reqfile, r_char, "r")))
+		(fopen_s(&reqfile, r_char, "r"))
 #else
-		!(reqfile = fopen(r_char, "r")))
+		!(reqfile = fopen(r_char, "r"))
 #endif
-	{
+    ) {
 		fprintf(stderr, "%s: cannot open certificate request\n", pname);
 		exit (SCEP_PKISTATUS_FILE);
 	}
