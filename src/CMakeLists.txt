@@ -28,3 +28,4 @@ target_link_libraries(sscep
 	PRIVATE
 		${OPENSSL_LIBRARIES}
 )
+install (TARGETS sscep RUNTIME DESTINATION bin)
