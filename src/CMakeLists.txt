@@ -1,6 +1,6 @@
 find_package(OpenSSL 1.1.0 REQUIRED)
 
-add_executable(sscep)
+add_executable(sscep "")
 
 target_sources(sscep
         PRIVATE
