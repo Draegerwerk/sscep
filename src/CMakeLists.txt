@@ -13,8 +13,6 @@ target_sources(sscep
             fileutils.c
             fileutils_capi.h
             fileutils_capi.c
-            getopt.h
-            getopt.c
             ias.h
             ias.c
             net.c
