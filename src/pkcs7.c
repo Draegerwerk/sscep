@@ -866,7 +866,7 @@ int get_signed_attribute(STACK_OF(X509_ATTRIBUTE) *attribs, int nid,int type, ch
 			pname);	
 		exit (SCEP_PKISTATUS_P7);
 	}
-	memcpy(*buffer, ASN1_STRING_data(asn1_type->value.asn1_string), len);
+	memcpy(*buffer, ASN1_STRING_get0_data(asn1_type->value.asn1_string), len);
 
 	/* Add null terminator if it's a PrintableString */
 	if (type == V_ASN1_PRINTABLESTRING) {
@@ -881,34 +881,18 @@ int get_attribute(STACK_OF(X509_ATTRIBUTE) *attribs, int required_nid,
 				ASN1_TYPE **asn1_type) {
 	int		i;
 	ASN1_OBJECT	*asn1_obj = NULL;
-	X509_ATTRIBUTE	*x509_attrib = X509_ATTRIBUTE_new();
+	X509_ATTRIBUTE	*x509_attrib = NULL;
+	int attr_loc = X509at_get_attr_by_NID(attribs, required_nid, -1);
 
 	if (v_flag)
 		printf("%s: finding attribute %s\n", pname,
 			OBJ_nid2sn(required_nid));
 	*asn1_type = NULL;
-	asn1_obj = OBJ_nid2obj(required_nid);
-	if (asn1_obj == NULL) {
-		fprintf(stderr, "%s: error creating ASN.1 object\n", pname);
-		ERR_print_errors_fp(stderr);
-		exit (SCEP_PKISTATUS_P7);
-	}
-	/* Find attribute */
-	for (i = 0; i < sk_X509_ATTRIBUTE_num(attribs); i++) {
-		x509_attrib = sk_X509_ATTRIBUTE_value(attribs, i);
-		if (OBJ_cmp(X509_ATTRIBUTE_get0_object(x509_attrib), asn1_obj) == 0) {
-			if ((X509_ATTRIBUTE_get0_type(x509_attrib, 0)) &&
-			  (sk_ASN1_TYPE_num(X509_ATTRIBUTE_get0_type(x509_attrib, 0)) != 0)) {
-				if (*asn1_type != NULL) {
-					fprintf(stderr, "%s: no value found",
-							pname);
-					exit (SCEP_PKISTATUS_P7);
-				}
-			*asn1_type =
-				sk_ASN1_TYPE_value(X509_ATTRIBUTE_get0_type(x509_attrib, 0), 0);
-			}
-		}
-	}
+	if (attr_loc < 0)
+		return 1;
+	x509_attrib = sk_X509_ATTRIBUTE_value(attribs, attr_loc);
+	*asn1_type = X509_ATTRIBUTE_get0_type(x509_attrib, 0);
+	printf("%s (%d): %d %p\n", __func__, __LINE__, attr_loc, *asn1_type);
 
 	if (*asn1_type == NULL)
 		return (1);
