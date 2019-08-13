@@ -427,6 +427,7 @@ int main(int argc, char **argv) {
 #endif
         dir_name = url_char;
     }
+
 #ifdef WIN32
         else if (!(host_name = _strdup(url_char + url_head_len)))
 #else
@@ -486,6 +487,10 @@ int main(int argc, char **argv) {
         sig_alg = (EVP_MD *) EVP_md5();
     } else if (!strncmp(S_char, "sha1", 4)) {
         sig_alg = (EVP_MD *) EVP_sha1();
+	} else if (!strncmp(S_char, "sha256", 6)) {
+		sig_alg = (EVP_MD *)EVP_sha256();
+	} else if (!strncmp(S_char, "sha512", 6)) {
+		sig_alg = (EVP_MD *)EVP_sha512();
     } else {
         fprintf(stderr, "%s: unsupported algorithm: %s\n",
                 pname, S_char);
@@ -498,6 +503,10 @@ int main(int argc, char **argv) {
         fp_alg = (EVP_MD *) EVP_md5();
     } else if (!strncmp(F_char, "sha1", 4)) {
         fp_alg = (EVP_MD *) EVP_sha1();
+	} else if (!strncmp(F_char, "sha256", 6)) {
+		fp_alg = (EVP_MD *)EVP_sha256();
+	} else if (!strncmp(F_char, "sha512", 6)) {
+		fp_alg = (EVP_MD *)EVP_sha512();
     } else {
         fprintf(stderr, "%s: unsupported algorithm: %s\n",
                 pname, F_char);
@@ -1084,12 +1093,12 @@ usage() {
                     "  -f <file>         Use configuration file\n"
                     "  -c <file>         CA certificate file (write if OPERATION is getca or getnextca)\n"
                     "  -E <name>         PKCS#7 encryption algorithm (des|3des|blowfish|aes)\n"
-                    "  -S <name>         PKCS#7 signature algorithm (md5|sha1)\n"
+                    "  -S <name>         PKCS#7 signature algorithm (md5|sha1|sha256|sha512)\n"
                     "  -v                Verbose operation\n"
                     "  -d                Debug (even more verbose operation)\n"
                     "\nOPTIONS for OPERATION getca are\n"
                     "  -i <string>       CA identifier string\n"
-                    "  -F <name>         Fingerprint algorithm\n"
+	"  -F <name>         Fingerprint algorithm (md5|sha1|sha256|sha512)\n"
                     "\nOPTIONS for OPERATION getnextca are\n"
                     "  -C <file>         Local certificate chain file for signature verification in PEM format \n"
                     "  -F <name>         Fingerprint algorithm\n"
