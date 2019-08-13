@@ -1,6 +1,6 @@
 find_package(OpenSSL 1.1.0 REQUIRED)
 
-add_executable(sscep)
+add_executable(sscep "")
 
 target_sources(sscep
         PRIVATE
@@ -13,8 +13,6 @@ target_sources(sscep
             fileutils.c
             fileutils_capi.h
             fileutils_capi.c
-            getopt.h
-            getopt.c
             ias.h
             ias.c
             net.c
@@ -28,3 +26,4 @@ target_link_libraries(sscep
 	PRIVATE
 		${OPENSSL_LIBRARIES}
 )
+install (TARGETS sscep RUNTIME DESTINATION bin)
