@@ -1,6 +1,6 @@
 find_package(OpenSSL 1.1.0 REQUIRED)
 
-add_executable(sscep)
+add_executable(sscep sscep.c)
 
 target_sources(sscep
         PRIVATE
@@ -20,6 +20,8 @@ target_sources(sscep
             sceputils.c
             sscep.c
             sscep.h
+            log.h
+            log.c
         )
 
 include_directories(${OPENSSL_INCLUDE_DIR})

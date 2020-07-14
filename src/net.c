@@ -6,7 +6,7 @@
  */
 
 
-/* HTTP(S) routine */
+// HTTP(S) routine
 
 
 #include "sscep.h"
@@ -16,7 +16,7 @@ void perror_w32 (const char *message)
 {
     char buffer[BUFSIZ];
 
-    /* letzten Fehlertext holen und formatieren */
+    // letzten Fehlertext holen und formatieren
     FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM, 0, GetLastError(), 0, (LPWSTR) buffer,
           sizeof buffer, NULL);
     fprintf(stderr, "%s: %s", message, buffer);
@@ -46,26 +46,26 @@ send_msg(struct http_reply *http, char *msg, char *host, int port, int operation
     tv.tv_usec = 0;
 #endif
 
-    /* resolve name */
+    // resolve name
     h = gethostbyname(host);
     if (h == NULL) {
         printf("unknown host '%s'\n", host);
         return (1);
     }
 
-    /* fill in server socket structure: */
+    // fill in server socket structure:
     servAddr.sin_family = h->h_addrtype;
     memcpy((char *) &servAddr.sin_addr.s_addr,
            h->h_addr_list[0], h->h_length);
     servAddr.sin_port = htons(port);
 
-    /* create socket */
+    // create socket
     sd = socket(AF_INET, SOCK_STREAM, 0);
     if (sd < 0) {
         perror("cannot open socket ");
         return (1);
     }
-    /* bind any port number */
+    // bind any port number
     localAddr.sin_family = AF_INET;
     localAddr.sin_addr.s_addr = htonl(INADDR_ANY);
     localAddr.sin_port = htons(0);
@@ -76,9 +76,8 @@ send_msg(struct http_reply *http, char *msg, char *host, int port, int operation
         return (1);
     }
 
-    /* connect to server */
-    /* The two socket options SO_RCVTIMEO and SO_SNDTIMEO do not work with connect
-       connect has a default timeout of 120 */
+    // connect to server
+    // The two socket options SO_RCVTIMEO and SO_SNDTIMEO do not work with connectconnect has a default timeout of 120
     rc = connect(sd, (struct sockaddr *) &servAddr, sizeof(servAddr));
     if (rc < 0) {
         perror("cannot connect");
@@ -100,7 +99,7 @@ send_msg(struct http_reply *http, char *msg, char *host, int port, int operation
             fprintf(stderr, "Error: Could not build a SSL session to: %s.\n"
                             "Maybe you haven't specified the correct port yet (-u <hosturl>:443)", host);
 
-        /* send data */
+        // send data
         rc = SSL_write(ssl, msg, strlen(msg));
 
         if (rc < 0) {
@@ -113,7 +112,7 @@ send_msg(struct http_reply *http, char *msg, char *host, int port, int operation
             return (1);
         }
 
-        /* Get response */
+        // Get response
         buf = (char *) malloc(1024);
         used = 0;
         while ((bytes = SSL_read(ssl, &buf[used], 1024)) > 0) {
@@ -127,7 +126,7 @@ send_msg(struct http_reply *http, char *msg, char *host, int port, int operation
         }
         buf[used] = '\0';
     } else {
-        /* send data */
+        // send data
         rc = send(sd, msg, strlen(msg), 0);
 
         if (rc < 0) {
@@ -140,7 +139,7 @@ send_msg(struct http_reply *http, char *msg, char *host, int port, int operation
             return (1);
         }
 
-        /* Get response */
+        // Get response
         buf = (char *) malloc(1024);
         used = 0;
         while ((bytes = recv(sd, &buf[used], 1024, 0)) > 0) {
@@ -155,60 +154,44 @@ send_msg(struct http_reply *http, char *msg, char *host, int port, int operation
         buf[used] = '\0';
     }
 
-
-    /* Fetch the status code: */
+    // Fetch the status code:
     sscanf(buf, "%s %d ", tmp, &http->status);
-    if (v_flag)
-        fprintf(stdout, "%s: server returned status code %d\n",
-                pname, http->status);
+    if (v_flag) fprintf(stdout, "%s: server returned status code %d\n", pname, http->status);
 
-    /* Set SCEP reply type */
+    // Set SCEP reply type
     switch (operation) {
         case SCEP_OPERATION_GETCA:
             if (strstr(buf, MIME_GETCA)) {
                 http->type = SCEP_MIME_GETCA;
-                if (v_flag)
-                    printf("%s: MIME header: %s\n",
-                           pname, MIME_GETCA);
-            } else if (strstr(buf, MIME_GETCA_RA) ||
-                       strstr(buf, MIME_GETCA_RA_ENTRUST)) {
+                if (v_flag) printf("%s: MIME header: %s\n", pname, MIME_GETCA);
+            } else if (strstr(buf, MIME_GETCA_RA) || strstr(buf, MIME_GETCA_RA_ENTRUST)) {
                 http->type = SCEP_MIME_GETCA_RA;
-                if (v_flag)
-                    printf("%s: MIME header: %s\n",
-                           pname, MIME_GETCA_RA);
+                if (v_flag) printf("%s: MIME header: %s\n", pname, MIME_GETCA_RA);
             } else {
-                if (v_flag)
-                    printf("%s: mime_err: %s\n", pname, buf);
-
+                if (v_flag) printf("%s: mime_err: %s\n", pname, buf);
                 goto mime_err;
             }
             break;
         case SCEP_OPERATION_GETNEXTCA:
             if (strstr(buf, MIME_GETNEXTCA)) {
                 http->type = SCEP_MIME_GETNEXTCA;
-                if (v_flag)
-                    printf("%s: MIME header: %s\n",
-                           pname, MIME_GETNEXTCA);
+                if (v_flag) printf("%s: MIME header: %s\n", pname, MIME_GETNEXTCA);
             } else {
-                if (v_flag)
-                    printf("%s: mime_err: %s\n", pname, buf);
-
+                if (v_flag) printf("%s: mime_err: %s\n", pname, buf);
                 goto mime_err;
             }
             break;
         default:
             if (!strstr(buf, MIME_PKI)) {
-                if (v_flag)
-                    printf("%s: mime_err: %s\n", pname, buf);
+                if (v_flag) printf("%s: mime_err: %s\n", pname, buf);
                 goto mime_err;
             }
             http->type = SCEP_MIME_PKI;
-            if (v_flag)
-                printf("%s: MIME header: %s\n", pname, MIME_PKI);
+            if (v_flag) printf("%s: MIME header: %s\n", pname, MIME_PKI);
             break;
     }
 
-    /* Find payload */
+    // Find payload
     for (p = buf; *buf; buf++) {
         if (!strncmp(buf, "\n\n", 2) && *(buf + 2)) {
             http->payload = buf + 2;
@@ -225,8 +208,7 @@ send_msg(struct http_reply *http, char *msg, char *host, int port, int operation
     }
     http->bytes = used - (http->payload - p);
     if (http->payload == NULL) {
-        /* This is not necessarily error...
-         * XXXXXXXXXXXXXXXX check */
+        // This is not necessarily error... XXXXXXXXXXXXXXXX check
         fprintf(stderr, "%s: cannot find data from http reply\n", pname);
     }
 
@@ -250,14 +232,14 @@ send_msg(struct http_reply *http, char *msg, char *host, int port, int operation
 
 }
 
-/* URL-encode the input and return back encoded string */
+// URL-encode the input and return back encoded string
 char *url_encode(char *s, size_t n) {
     char *r;
     size_t len;
     unsigned int i;
     char ch[2];
 
-    /* Allocate 2 times bigger space than the original string */
+    // Allocate 2 times bigger space than the original string
     len = 2 * n;
     r = (char *) malloc(len);
     if (r == NULL) {
@@ -269,7 +251,7 @@ char *url_encode(char *s, size_t n) {
     strcpy(r, "");
 #endif
 
-    /* Copy data */
+    // Copy data
     for (i = 0; i < n; i++) {
         switch (*(s + i)) {
             case '+':

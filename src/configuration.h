@@ -88,27 +88,27 @@
  * so new parameters can be defined more easily.
  */
 typedef struct {
-	struct scep_engine_conf_st *engine;
-	char *engine_str;
+    struct scep_engine_conf_st *engine;
+    char *engine_str;
 } SCEP_CONF;
 
 typedef struct {
-	char* name;
-	char* value;
+    char* name;
+    char* value;
 } NAME_VALUE_PAIR;
 
 struct scep_engine_conf_st{
-	char *engine_id; // ID of the engine according to OpenSSL (e.g. pkcs11, capi, chil, ...)
-	char *new_key_location; // CryptoAPI only option: Which storename to set for the new key, default: REQUEST
-	int storelocation; // CryptoAPI only option: Which storelocation to use, default: OpenSSL engine default
-	char *dynamic_path; // where the shared object (.so, .dll) can be found
-	char *jconnpath; //the JavaConnectorPath variable which needs to be set to use the Java part of JKSEngine
-	char *storepass; // Passphrase for the JKS keystore (JKSEngine)
-	char *provider; // Provider of the keystore (JKSEngine)
-	char *javapath; // Path to Java (JKSEngine)
-	char *pin; //the PIN used for the PKCS11 token, default: will be prompted (pkcs11)
-	char *module_path; // see OpenSSL ctrl MODULE_PATH for engines (example: PKCS#11)
-	NAME_VALUE_PAIR **cmds; // NULL terminated array of engine init commands (or NULL)
+    char *engine_id; // ID of the engine according to OpenSSL (e.g. pkcs11, capi, chil, ...)
+    char *new_key_location; // CryptoAPI only option: Which storename to set for the new key, default: REQUEST
+    int storelocation; // CryptoAPI only option: Which storelocation to use, default: OpenSSL engine default
+    char *dynamic_path; // where the shared object (.so, .dll) can be found
+    char *jconnpath; //the JavaConnectorPath variable which needs to be set to use the Java part of JKSEngine
+    char *storepass; // Passphrase for the JKS keystore (JKSEngine)
+    char *provider; // Provider of the keystore (JKSEngine)
+    char *javapath; // Path to Java (JKSEngine)
+    char *pin; //the PIN used for the PKCS11 token, default: will be prompted (pkcs11)
+    char *module_path; // see OpenSSL ctrl MODULE_PATH for engines (example: PKCS#11)
+    NAME_VALUE_PAIR **cmds; // NULL terminated array of engine init commands (or NULL)
 };
 
 SCEP_CONF *scep_conf;
