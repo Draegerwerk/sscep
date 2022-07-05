@@ -34,9 +34,7 @@ int new_transaction(struct scep *s) {
         s->transaction_id = key_fingerprint(request);
     else
         s->transaction_id = TRANS_ID_GETCERT;
-    if (v_flag) {
-        printf("%s: transaction id: %s\n", pname, s->transaction_id);
-    }
+    log_debug("transaction id: %s", s->transaction_id);
     return (0);
 }
 
@@ -57,15 +55,14 @@ int new_selfsigned(struct scep *s) {
 
     // Extract public value of the local key from request
     if (!(s->pkey = X509_REQ_get_pubkey(request))) {
-        fprintf(stderr, "%s: error getting public key from request\n",
-            pname);
+        log_error("error getting public key from request");
         ERR_print_errors_fp(stderr);
         exit (SCEP_PKISTATUS_SS);
     }
 
     // Get subject, issuer and extensions
     if (!(subject = X509_REQ_get_subject_name(request))) {
-        fprintf(stderr, "%s: error getting subject\n", pname);
+        log_error("error getting subject");
         ERR_print_errors_fp(stderr);
         exit (SCEP_PKISTATUS_SS);
     }
@@ -73,25 +70,24 @@ int new_selfsigned(struct scep *s) {
 // Don't generate v3 extensions in selfsigned..
 #if 0
     if (!(req_extensions = X509_REQ_get_extensions(request))) {
-        fprintf(stderr, "%s: error getting X509v3 extensions\n", pname);
+        log_error("error getting X509v3 extensions");
         ERR_print_errors_fp(stderr);
         exit (SCEP_PKISTATUS_SS);
     }
     // Only supported extension is subjectAltName
-    subject_altname_pos = X509v3_get_ext_by_NID(req_extensions,
-        OBJ_sn2nid("subjectAltName"), -1);
+    subject_altname_pos = X509v3_get_ext_by_NID(req_extensions, OBJ_sn2nid("subjectAltName"), -1);
     subject_altname = X509v3_get_ext(req_extensions, subject_altname_pos);
 #endif
 
     // Create new certificate
     if (!(cert = X509_new())) {
-        fprintf(stderr, "%s: error creating X509 certificate\n", pname);
+        log_error("error creating X509 certificate");
         ERR_print_errors_fp(stderr);
         exit (SCEP_PKISTATUS_SS);
     }
     // Set version (X509v3)
     if (X509_set_version(cert, 2L) != 1) {
-        fprintf(stderr, "%s: error setting cert version\n", pname);
+        log_error("error setting cert version");
         ERR_print_errors_fp(stderr);
         exit (SCEP_PKISTATUS_SS);
     }
@@ -102,42 +98,41 @@ int new_selfsigned(struct scep *s) {
     BN_bin2bn(ptr, sizeof(ptr), bn);
 
     if (!(serial = BN_to_ASN1_INTEGER(bn, NULL))) {
-        fprintf(stderr, "%s: error converting serial\n", pname);
+        log_error("error converting serial");
         ERR_print_errors_fp(stderr);
         exit (SCEP_PKISTATUS_SS);
     }
     if (X509_set_serialNumber(cert, serial) != 1) { 
-        fprintf(stderr, "%s: error setting serial\n", pname);
+        log_error("error setting serial");
         ERR_print_errors_fp(stderr);
         exit (SCEP_PKISTATUS_SS);
     }
     // Set subject
     if (X509_set_subject_name(cert, subject) != 1) {
-        fprintf(stderr, "%s: error setting subject\n", pname);
+        log_error("error setting subject");
         ERR_print_errors_fp(stderr);
         exit (SCEP_PKISTATUS_SS);
     }
     // Set issuer (it's really the same as subject
     if (X509_set_issuer_name(cert, subject) != 1) {
-        fprintf(stderr, "%s: error setting issuer\n", pname);
+        log_error("error setting issuer");
         ERR_print_errors_fp(stderr);
         exit (SCEP_PKISTATUS_SS);
     }
     // Set public key
     if (X509_set_pubkey(cert, s->pkey) != 1) {
-        fprintf(stderr, "%s: error setting public key", pname);
+        log_error("error setting public key");
         ERR_print_errors_fp(stderr);
         exit (SCEP_PKISTATUS_SS);
     }
     // Set duration
     if (!(X509_gmtime_adj(X509_get_notBefore(cert), 0))) {
-        fprintf(stderr, "%s: error setting begin time", pname);
+        log_error("error setting begin time");
         ERR_print_errors_fp(stderr);
         exit (SCEP_PKISTATUS_SS);
     }
-    if (!(X509_gmtime_adj(X509_get_notAfter(cert),
-            SELFSIGNED_EXPIRE_DAYS * 24 * 60))) {
-        fprintf(stderr, "%s: error setting end time", pname);
+    if (!(X509_gmtime_adj(X509_get_notAfter(cert), SELFSIGNED_EXPIRE_DAYS * 24 * 60))) {
+        log_error("%s: error setting end time");
         ERR_print_errors_fp(stderr);
         exit (SCEP_PKISTATUS_SS);
     }
@@ -145,14 +140,14 @@ int new_selfsigned(struct scep *s) {
 #if 0
     // Add subjectAltName
     if (subject_altname && !X509_add_ext(cert, subject_altname, -1)) {
-        fprintf(stderr, "%s: error setting subjectAltName", pname);
+        log_error("error setting subjectAltName");
         ERR_print_errors_fp(stderr);
         exit (SCEP_PKISTATUS_SS);
     }
 #endif
     // Sign certificate
     if (!(X509_sign(cert, rsa, sig_alg))) {
-        fprintf(stderr, "%s: error signing certificate", pname);
+        log_error("error signing certificate");
         ERR_print_errors_fp(stderr);
         exit (SCEP_PKISTATUS_SS);
     }
@@ -167,49 +162,45 @@ int new_selfsigned(struct scep *s) {
 int init_scep() {
     unsigned char   randpool[1024];
 
+    // set default log level
+    log_set_level(LOG_INFO);
+
     // Add algorithms and init random pool
     RAND_seed(randpool, sizeof(randpool));
 
     // Create OpenSSL NIDs
-    nid_messageType = OBJ_create("2.16.840.1.113733.1.9.2", "messageType",
-        "messageType");
+    nid_messageType = OBJ_create("2.16.840.1.113733.1.9.2", "messageType", "messageType");
     if (nid_messageType == 0) {
         goto err;
     }
-    nid_pkiStatus = OBJ_create("2.16.840.1.113733.1.9.3", "pkiStatus",
-        "pkiStatus");
+    nid_pkiStatus = OBJ_create("2.16.840.1.113733.1.9.3", "pkiStatus", "pkiStatus");
     if (nid_pkiStatus == 0) {
         goto err;
     }
-    nid_failInfo = OBJ_create("2.16.840.1.113733.1.9.4", "failInfo",
-        "failInfo");
+    nid_failInfo = OBJ_create("2.16.840.1.113733.1.9.4", "failInfo", "failInfo");
     if (nid_failInfo == 0) {
         goto err;
     }
-    nid_senderNonce = OBJ_create("2.16.840.1.113733.1.9.5", "senderNonce",
-        "senderNonce");
+    nid_senderNonce = OBJ_create("2.16.840.1.113733.1.9.5", "senderNonce", "senderNonce");
     if (nid_senderNonce == 0) {
         goto err;
     }
-    nid_recipientNonce = OBJ_create("2.16.840.1.113733.1.9.6",
-                "recipientNonce", "recipientNonce");
+    nid_recipientNonce = OBJ_create("2.16.840.1.113733.1.9.6", "recipientNonce", "recipientNonce");
     if (nid_recipientNonce == 0) {
         goto err;
     }
-    nid_transId = OBJ_create("2.16.840.1.113733.1.9.7", "transId",
-        "transId");
+    nid_transId = OBJ_create("2.16.840.1.113733.1.9.7", "transId", "transId");
     if (nid_transId == 0) {
         goto err;
     }
-    nid_extensionReq = OBJ_create("2.16.840.1.113733.1.9.8",
-                "extensionReq", "extensionReq");
+    nid_extensionReq = OBJ_create("2.16.840.1.113733.1.9.8", "extensionReq", "extensionReq");
     if (nid_extensionReq == 0) {
         goto err;
     }
     return (0);
 
 err:
-    fprintf(stderr, "%s: cannot create OID\n", pname);
+    log_error("cannot create OID");
     return (1);
 }
 

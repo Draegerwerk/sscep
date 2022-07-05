@@ -15,10 +15,10 @@
 
 // Open the inner, decrypted PKCS7 and try to write CRL.
 void write_crl(struct scep *s) {
-    PKCS7            *p7;
-    STACK_OF(X509_CRL)    *crls;
-    X509_CRL        *crl;
-    FILE            *fp;
+    PKCS7               *p7;
+    STACK_OF(X509_CRL)  *crls;
+    X509_CRL            *crl;
+    FILE                *fp;
 
     // Get CRL
     p7 = s->reply_p7;
@@ -27,33 +27,32 @@ void write_crl(struct scep *s) {
     // We expect only one CRL:
     crl = sk_X509_CRL_value(crls, 0);
     if (crl == NULL) {
-        fprintf(stderr, "%s: cannot find CRL in reply\n", pname);
+        log_error("cannot find CRL in reply");
         exit (SCEP_PKISTATUS_FILE);
     }
 
     // Write PEM-formatted file:
-    if (fopen_s(fp, w_char, "w")) {
-        fprintf(stderr, "%s: cannot open CRL file for writing\n", pname);
+    if (fopen_s(&fp, w_char, "w")) {
+        log_error("cannot open CRL file for writing");
         exit (SCEP_PKISTATUS_FILE);
     }
-    if (v_flag) printf("%s: writing CRL\n", pname);
+    log_debug("writing CRL");
     if (d_flag) PEM_write_X509_CRL(stdout, crl);
     if (PEM_write_X509_CRL(fp, crl) != 1) {
-        fprintf(stderr, "%s: error while writing CRL "
-            "file\n", pname);
+        log_error("error while writing CRL file");
         ERR_print_errors_fp(stderr);
         exit (SCEP_PKISTATUS_FILE);
     }
-    printf("%s: CRL written as %s\n", pname, w_char);
-    (void)fclose(fp);
+    log_info("CRL written as %s", w_char);
+    fclose(fp);
 }
 
 static int compare_subject(X509 * cert) {
     char buffer[1024];
     int rc = X509_NAME_cmp(X509_get_subject_name(cert), X509_REQ_get_subject_name(request));
     if(d_flag) {
-        fprintf(stderr, "Subject of the returned certificate: %s\n", (char *)X509_get_subject_name(cert));
-        fprintf(stderr, "Subject of the request: %s\n", X509_NAME_oneline(X509_REQ_get_subject_name(request), buffer, sizeof(buffer)));
+        log_error("Subject of the returned certificate: %s\n", (char *)X509_get_subject_name(cert));
+        log_error("Subject of the request: %s\n", X509_NAME_oneline(X509_REQ_get_subject_name(request), buffer, sizeof(buffer)));
     }
     if (rc) {
         /* X509_NAME_cmp should return 0 when X509_get_subject_name()
@@ -66,7 +65,7 @@ static int compare_subject(X509 * cert) {
         char req_buf[1024];
         X509_NAME_oneline(X509_get_subject_name(cert), cert_buf, sizeof(cert_buf));
         X509_NAME_oneline(X509_REQ_get_subject_name(request), req_buf, sizeof(req_buf));
-        if (v_flag) printf (" X509_NAME_cmp() workaround: strcmp request subject (%s) to cert subject (%s)\n", req_buf, cert_buf);
+        log_debug("X509_NAME_cmp() workaround: strcmp request subject (%s) to cert subject (%s)", req_buf, cert_buf);
         rc = strcmp (cert_buf, req_buf);
     }
 
@@ -76,16 +75,16 @@ static int compare_subject(X509 * cert) {
 // Write PEM-formatted file
 void write_cert(X509* cert, char* filepath) {
     FILE* ptr_file;
-    if (fopen_s(ptr_file, filepath, "w")) {
-        fprintf(stderr, "%s: cannot open cert file for writing\n", pname);
+    if (fopen_s(&ptr_file, filepath, "w")) {
+        log_error("cannot open cert file for writing");
         exit (SCEP_PKISTATUS_FILE);
     }
-    if (v_flag) printf("%s: certificate written as %s\n", pname, filepath);
+    log_debug("certificate written as %s", filepath);
     if (d_flag) PEM_write_X509(stdout, cert);
     if (PEM_write_X509(ptr_file, cert) != 1) {
-        fprintf(stderr, "%s: error while writing certificate file\n", pname);
+        log_error("error while writing certificate file");
         ERR_print_errors_fp(stderr);
-        exit (SCEP_PKISTATUS_FILE);
+        exit(SCEP_PKISTATUS_FILE);
     }
     fclose(ptr_file);
 }
@@ -104,23 +103,23 @@ void write_local_cert(struct scep *s) {
     p7 = s->reply_p7;
     certs = p7->d.sign->cert;
        
-    if (v_flag) printf ("write_local_cert(): found %d cert(s)\n", sk_X509_num(certs));
+    log_debug("write_local_cert(): found %d cert(s)\n", sk_X509_num(certs));
 
     // Find cert
     for (i = 0; i < sk_X509_num(certs); i++) {
         char buffer[1024];
         cert = sk_X509_value(certs, i);
         if (v_flag) {
-            printf("%s: found certificate with\n subject: '%s'\n issuer: %s\n request_subject: '%s'\n", pname,
+            log_debug("found certificate with\n subject: '%s'\n issuer: %s\n request_subject: '%s'",
                 X509_NAME_oneline(X509_get_subject_name(cert), buffer, sizeof(buffer)),
                 X509_NAME_oneline(X509_get_issuer_name(cert), buffer, sizeof(buffer)),
                 X509_NAME_oneline(X509_REQ_get_subject_name(request), buffer, sizeof(buffer)));
         }
         // The subject has to match that of our request
         if (!compare_subject(cert)) {
-            if (v_flag) printf ("CN's of request and certificate matched!\n");
+            log_debug("CN's of request and certificate matched!");
         } else {
-            fprintf(stderr, "%s: Subject of our request does not match that of the returned Certificate!\n", pname);
+            log_error("Subject of our request does not match that of the returned Certificate!");
             //exit (SCEP_PKISTATUS_FILE);
         }
 
@@ -131,7 +130,7 @@ void write_local_cert(struct scep *s) {
         }
     }
     if (localcert == NULL) {
-        fprintf(stderr, "%s: cannot find requested certificate\n", pname);
+        log_error("cannot find requested certificate");
         exit (SCEP_PKISTATUS_FILE);
     }
     write_cert(localcert, l_char);
@@ -157,9 +156,9 @@ void write_other_cert(struct scep *s) {
 
         cert = sk_X509_value(certs, i);
         if (v_flag) {
-            printf("%s: found certificate with\n subject: %s\n issuer: %s\n", pname,
-                   X509_NAME_oneline(X509_get_subject_name(cert), buffer, sizeof(buffer)),
-                   X509_NAME_oneline(X509_get_issuer_name(cert), buffer, sizeof(buffer)));
+            log_debug("found certificate with\n subject: %s\n issuer: %s",
+                      X509_NAME_oneline(X509_get_subject_name(cert), buffer, sizeof(buffer)),
+                      X509_NAME_oneline(X509_get_issuer_name(cert), buffer, sizeof(buffer)));
         }
         // The serial has to match to requested one
         if (!ASN1_INTEGER_cmp(X509_get_serialNumber(cert), s->ias_getcert->serial)) {
@@ -168,7 +167,7 @@ void write_other_cert(struct scep *s) {
         }
     }
     if (othercert == NULL) {
-        fprintf(stderr, "%s: cannot find certificate\n", pname);
+        log_error("cannot find certificate");
         exit (SCEP_PKISTATUS_FILE);
     }
     write_cert(othercert, w_char);
@@ -192,7 +191,7 @@ int write_ca_ra(struct http_reply *s) {
     bio = BIO_new_mem_buf(s->payload, s->bytes);
     p7 = d2i_PKCS7_bio(bio, NULL);
     if (p7 == NULL) {
-        fprintf(stderr, "%s: error reading PKCS#7 data\n", pname);
+        log_error("error reading PKCS#7 data");
         ERR_print_errors_fp(stderr);
         exit (SCEP_PKISTATUS_FILE);
     }
@@ -203,12 +202,12 @@ int write_ca_ra(struct http_reply *s) {
             certs = p7->d.sign->cert;
             break;
         default:
-            printf("%s: wrong PKCS#7 type\n", pname);
+            log_info("wrong PKCS#7 type");
             exit (SCEP_PKISTATUS_FILE);
     }
     // Check
     if (certs == NULL) {
-        fprintf(stderr, "%s: cannot find certificates\n", pname);
+        log_error("cannot find certificates");
         exit (SCEP_PKISTATUS_FILE);
     }
 
@@ -229,14 +228,10 @@ int write_ca_ra(struct http_reply *s) {
 
         // Read and print certificate information
         if (v_flag){
-        printf("\n%s: found certificate with\n  subject: %s\n", pname,
-        X509_NAME_oneline(X509_get_subject_name(cert),
-                    buffer, sizeof(buffer)));
+            log_debug("found certificate with\n subject: %s\n  issuer: %s",
+                      X509_NAME_oneline(X509_get_subject_name(cert), buffer, sizeof(buffer)),
+                      X509_NAME_oneline(X509_get_issuer_name(cert), buffer, sizeof(buffer)));
         }
-        if (v_flag)
-        printf("  issuer: %s\n",
-            X509_NAME_oneline(X509_get_issuer_name(cert),
-                    buffer, sizeof(buffer)));
         if (!X509_digest(cert, fp_alg, md, &n)) {
             ERR_print_errors_fp(stderr);
             exit (SCEP_PKISTATUS_FILE);
@@ -244,25 +239,22 @@ int write_ca_ra(struct http_reply *s) {
         // Print key usage:
         index = X509_get_ext_by_NID(cert, NID_key_usage, -1);
         if (index < 0) {
-            if (v_flag)
-                fprintf(stderr, "%s: cannot find key usage\n",
-                    pname);
-            // exit (SCEP_PKISTATUS_FILE);
+            log_debug("cannot find key usage");
         } else {
             ext = X509_get_ext(cert, index);
-            if (v_flag){
-                printf("  usage: ");
+            if (v_flag) {
+                printf("   usage: ");
                 X509V3_EXT_print_fp(stdout, ext, 0, 0);
                 printf("\n");
             }
         }
         if (v_flag){
-            printf("  %s fingerprint: ", OBJ_nid2sn(EVP_MD_type(fp_alg)));
+            char md5[n*3];
             for (c = 0; c < (int)n; c++) {
-                printf("%02X%c",md[c], (c + 1 == (int)n) ?'\n':':');
+                snprintf(md5 + (c*3), sizeof(md5) - (c*3), "%02X%c", md[c], (c + 1 == (int)n) ?' ':':');
             }
+            log_debug("%s fingerprint: %s", OBJ_nid2sn(EVP_MD_type(fp_alg)), md5);
         }
-
         write_cert(cert, name);
     }
     exit (SCEP_PKISTATUS_SUCCESS);
@@ -271,12 +263,12 @@ int write_ca_ra(struct http_reply *s) {
 // Read local certificate (GetCert and GetCrl)
 void read_cert(X509** cert, char* filename) {
     FILE *file;
-    if (fopen_s(file, filename, "r")) {
-        fprintf(stderr, "%s: cannot open cert file %s\n", pname, filename);
+    if (fopen_s(&file, filename, "r")) {
+        log_error("cannot open cert file %s", filename);
         exit (SCEP_PKISTATUS_FILE);
     }
     if (!PEM_read_X509(file, cert, NULL, NULL)) {
-        fprintf(stderr, "%s: error while reading cert %s\n", pname, filename);
+        log_error("error while reading cert %s", filename);
         ERR_print_errors_fp(stderr);
         exit (SCEP_PKISTATUS_FILE);
     }
@@ -315,7 +307,7 @@ void read_cert(X509** cert, char* filename) {
     }
     if(!ctx || ret != 0)
     {
-        fprintf(stderr, "%s: cannot find Certificate with subject %s in store\n", pname, id);
+        log_error("cannot find Certificate with subject %s in store", id);
         exit(SCEP_PKISTATUS_FILE);
     }
 
@@ -341,18 +333,12 @@ void read_cert(X509** cert, char* filename) {
 void read_key(EVP_PKEY** key, char* filename) {
     FILE *file;
     // Read private key file
-    if (
-#ifdef WIN32
-    (fopen_s(&file, filename, "r"))
-#else
-    !(file = fopen(filename, "r"))
-#endif
-    ) {
-        fprintf(stderr, "%s: cannot open private key file %s\n", pname, filename);
+    if (fopen_s(&file, filename, "r")) {
+        log_error("cannot open private key file %s", filename);
         exit (SCEP_PKISTATUS_FILE);
     }
     if (!PEM_read_PrivateKey(file, key, NULL, NULL)) {
-            fprintf(stderr, "%s: error while reading private key %s\n", pname, filename);
+        log_error("error while reading private key %s", filename);
         ERR_print_errors_fp(stderr);
         exit (SCEP_PKISTATUS_FILE);
     }
@@ -362,12 +348,12 @@ void read_key(EVP_PKEY** key, char* filename) {
 // Read PKCS#10 request
 void read_request(X509_REQ** req, char* filepath) {
     // Read certificate request file
-    if (fopen_s(reqfile, filepath, "r")) {
-        fprintf(stderr, "%s: cannot open certificate request\n", pname);
+    if (fopen_s(&reqfile, filepath, "r")) {
+        log_error("cannot open certificate request");
         exit (SCEP_PKISTATUS_FILE);
     }
     if (!PEM_read_X509_REQ(reqfile, req, NULL, NULL)) {
-        fprintf(stderr, "%s: error while reading request file\n", pname);
+        log_error("error while reading request file");
         ERR_print_errors_fp(stderr);
         exit (SCEP_PKISTATUS_FILE);
     }
@@ -376,7 +362,7 @@ void read_request(X509_REQ** req, char* filepath) {
 
 #ifdef WIN32
 #else
-int fopen_s(FILE* streamptr, const char* filename, const char* mode) {
-    return !(streamptr = fopen(filename, mode));
+int fopen_s(FILE** streamptr, const char* filename, const char* mode) {
+    return !(*streamptr = fopen(filename, mode));
 }
 #endif

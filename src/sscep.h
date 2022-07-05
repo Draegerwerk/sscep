@@ -23,6 +23,7 @@
 #include "configuration.h"
 #include "engine.h"
 #include "fileutils_capi.h"
+#include "log.h"
 
 #ifdef WIN32
 
@@ -73,7 +74,7 @@
 #define VERSION    "0.7.0"
 
 /* SCEP operations */
-int operation_flag;
+extern int operation_flag;
 #define SCEP_OPERATION_GETCA        1
 #define SCEP_OPERATION_ENROLL       3
 #define SCEP_OPERATION_GETCERT      5
@@ -148,42 +149,42 @@ int operation_flag;
 // Global variables
 
 // Program name
-char *pname;
+extern char *pname;
 
 // Network timeout
-int timeout;
+extern int timeout;
 
 // Certificates, requests, keys..
-X509 *cacert;
-X509 *encert;
-X509 *localcert;
-X509 *othercert;
-X509 *renewal_cert;
-X509_REQ *request;
-EVP_PKEY *rsa;
-EVP_PKEY *renewal_key;
-X509_CRL *crl;
-FILE *cafile;
-FILE *reqfile;
-FILE *otherfile;
-FILE *crlfile;
+extern X509 *cacert;
+extern X509 *encert;
+extern X509 *localcert;
+extern X509 *othercert;
+extern X509 *renewal_cert;
+extern X509_REQ *request;
+extern EVP_PKEY *rsa;
+extern EVP_PKEY *renewal_key;
+extern X509_CRL *crl;
+extern FILE *cafile;
+extern FILE *reqfile;
+extern FILE *otherfile;
+extern FILE *crlfile;
 
 /* Fingerprint, signing and encryption algorithms */
-EVP_MD *fp_alg;
-EVP_MD *sig_alg;
-EVP_CIPHER *enc_alg;
+extern EVP_MD *fp_alg;
+extern EVP_MD *sig_alg;
+extern EVP_CIPHER *enc_alg;
 
 /* OpenSSL OID handles */
-int nid_messageType;
-int nid_pkiStatus;
-int nid_failInfo;
-int nid_senderNonce;
-int nid_recipientNonce;
-int nid_transId;
-int nid_extensionReq;
+extern int nid_messageType;
+extern int nid_pkiStatus;
+extern int nid_failInfo;
+extern int nid_senderNonce;
+extern int nid_recipientNonce;
+extern int nid_transId;
+extern int nid_extensionReq;
 
 /* Global pkistatus */
-int pkistatus;
+extern int pkistatus;
 
 /* Structures */
 
@@ -299,6 +300,9 @@ void read_request(X509_REQ** req, char* filepath);
 /* Write CRL */
 void write_crl(struct scep *);
 
+// Write an X509 cert in PEM format
+void write_cert(X509* cert, char* filepath);
+
 /* Write local certificate file */
 void write_local_cert(struct scep *);
 
@@ -319,7 +323,7 @@ char * key_fingerprint(X509_REQ *);
 
 #ifdef WIN32
 #else
-int fopen_s(FILE* streamptr, const char* filename, const char* mode);
+int fopen_s(FILE** streamptr, const char* filename, const char* mode);
 #endif
 
 /* PKCS#7 encode message */

@@ -5,6 +5,8 @@
 #define itoa _itoa
 #endif
 
+SCEP_CONF *scep_conf;
+
 NAME_VALUE_PAIR* NAME_VALUE_PAIR_new(char *name, char *value) {
     NAME_VALUE_PAIR *ret = OPENSSL_malloc(sizeof(NAME_VALUE_PAIR));
     ret->name = OPENSSL_strdup(name);
@@ -176,8 +178,8 @@ int scep_conf_load(CONF *conf) {
         engine_special_section = (char *) malloc(sizeof(SCEP_CONFIGURATION_SECTION_ENGINE_TEMPLATE) + sizeof(scep_conf->engine->engine_id));
         sprintf(engine_special_section, SCEP_CONFIGURATION_SECTION_ENGINE_TEMPLATE, scep_conf->engine->engine_id);
 
-        //load capi only option
-        //TODO move
+        // load capi only option
+        // TODO move
         if(strncmp(scep_conf->engine->engine_id, "capi", 4) == 0) {
             if(var = NCONF_get_string(conf, engine_special_section, SCEP_CONFIGURATION_ENGINE_CAPI_NEWKEYLOCATION)) {
                 if(v_flag)
