@@ -71,7 +71,7 @@
 #include <openssl/x509_vfy.h>
 /* Global defines */
 
-#define VERSION    "0.7.0"
+#define VERSION    "0.8.0"
 
 /* SCEP operations */
 extern int operation_flag;

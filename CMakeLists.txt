@@ -5,3 +5,4 @@ project(sscep)
 add_definitions("-DLOG_USE_COLOR")
 
 add_subdirectory(src)
+
