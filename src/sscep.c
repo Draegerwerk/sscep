@@ -10,11 +10,50 @@
 #define HTTP_CMP "http://"
 #define HTTPS_CMP "https://"
 
-
 #include "sscep.h"
 
-static char *
-handle_serial(char *serial) {
+// Global variables
+int operation_flag;
+
+// Program name
+char *pname;
+
+// Network timeout
+int timeout;
+
+// Certificates, requests, keys..
+X509 *cacert;
+X509 *encert;
+X509 *localcert;
+X509 *othercert;
+X509 *renewal_cert;
+X509_REQ *request;
+EVP_PKEY *rsa;
+EVP_PKEY *renewal_key;
+X509_CRL *crl;
+FILE *cafile;
+FILE *reqfile;
+FILE *otherfile;
+FILE *crlfile;
+
+/* Fingerprint, signing and encryption algorithms */
+EVP_MD *fp_alg;
+EVP_MD *sig_alg;
+EVP_CIPHER *enc_alg;
+
+/* OpenSSL OID handles */
+int nid_messageType;
+int nid_pkiStatus;
+int nid_failInfo;
+int nid_senderNonce;
+int nid_recipientNonce;
+int nid_transId;
+int nid_extensionReq;
+
+/* Global pkistatus */
+int pkistatus;
+
+static char *handle_serial(char *serial) {
     int hex = NULL != strchr(serial, ':');
 
     /* Convert serial to a decimal serial when input is
@@ -31,8 +70,9 @@ handle_serial(char *serial) {
     } else {
         unsigned int i;
         for (i = 0; !hex && '\0' != serial[i]; i++)
-            hex = 'a' == serial[i] || 'b' == serial[i] || 'c' == serial[i] || 'd' == serial[i] || 'e' == serial[i] ||
-                  'f' == serial[i];
+            hex = 'a' == serial[i] || 'b' == serial[i] || 
+                  'c' == serial[i] || 'd' == serial[i] || 
+                  'e' == serial[i] || 'f' == serial[i];
     }
 
     if (hex) {
@@ -56,8 +96,7 @@ handle_serial(char *serial) {
     return serial;
 } /* handle_serial */
 
-int
-main(int argc, char **argv) {
+int main(int argc, char **argv) {
     //ENGINE *e = NULL;
     int c, host_port = 80, count = 1;
     char *host_name, *p, *dir_name = NULL;
@@ -79,46 +118,38 @@ main(int argc, char **argv) {
     WORD wVersionRequested;
     WSADATA wsaData;
     int err;
-    //printf("Starting sscep\n");
-    //fprintf(stdout, "%s: starting sscep on WIN32, sscep version %s\n",	pname, VERSION);
 
     wVersionRequested = MAKEWORD( 2, 2 );
 
     err = WSAStartup( wVersionRequested, &wsaData );
-    if ( err != 0 )
-    {
-      /* Tell the user that we could not find a usable */
-      /* WinSock DLL.                                  */
+    if ( err != 0 ) {
+      // Tell the user that we could not find a usable
+      // WinSock DLL.
       return;
     }
 
-    /* Confirm that the WinSock DLL supports 2.2.*/
-    /* Note that if the DLL supports versions greater    */
-    /* than 2.2 in addition to 2.2, it will still return */
-    /* 2.2 in wVersion since that is the version we      */
-    /* requested.                                        */
-
-    if ( LOBYTE( wsaData.wVersion ) != 2 ||
-            HIBYTE( wsaData.wVersion ) != 2 )
-    {
-        /* Tell the user that we could not find a usable */
-        /* WinSock DLL.                                  */
+    // Confirm that the WinSock DLL supports 2.2.
+    // Note that if the DLL supports versions greater than 2.2 in addition to
+    // 2.2, it will still return 2.2 in wVersion since that is the version we
+    // requested.
+    if ( LOBYTE( wsaData.wVersion ) != 2 || HIBYTE( wsaData.wVersion ) != 2 ) {
+        // Tell the user that we could not find a usable
+        // WinSock DLL.
         WSACleanup( );
         return;
     }
 
 #endif
-    /* Initialize scep layer */
+    // Initialize scep layer
     init_scep();
 
-    /* Set program name */
+    // Set program name
     pname = argv[0];
 
-    /* Set timeout */
+    // Set timeout
     timeout = TIMEOUT;
 
-
-    /* Check operation parameter */
+    // Check operation parameter
     if (!argv[1]) {
         usage();
     } else if (!strncmp(argv[1], "getca", 5)) {
@@ -132,11 +163,10 @@ main(int argc, char **argv) {
     } else if (!strncmp(argv[1], "getnextca", 9)) {
         operation_flag = SCEP_OPERATION_GETNEXTCA;
     } else {
-        fprintf(stderr, "%s: missing or illegal operation parameter\n",
-                argv[0]);
+        log_error("missing or illegal operation parameter");
         usage();
     }
-    /* Skip first parameter and parse the rest of the command */
+    // Skip first parameter and parse the rest of the command
     optind++;
     while ((c = getopt(argc, argv, "c:C:de:E:f:g:hF:i:k:K:l:L:n:O:p:r:Rs:S:t:T:u:vw:m:HM:")) != -1)
         switch (c) {
@@ -149,6 +179,7 @@ main(int argc, char **argv) {
                 C_char = optarg;
                 break;
             case 'd':
+                log_set_level(LOG_TRACE);
                 d_flag = 1;
                 break;
             case 'e':
@@ -171,7 +202,8 @@ main(int argc, char **argv) {
                 g_flag = 1;
                 g_char = optarg;
                 break;
-            case 'h'://TODO change to eg. ID --inform=ID
+            case 'h':
+                // TODO: change to eg. ID --inform=ID
                 h_flag = 1;
                 break;
             case 'H':
@@ -265,6 +297,7 @@ main(int argc, char **argv) {
                 url_char = optarg;
                 break;
             case 'v':
+                log_set_level(LOG_DEBUG);
                 v_flag = 1;
                 break;
             case 'w':
@@ -272,13 +305,13 @@ main(int argc, char **argv) {
                 w_char = optarg;
                 break;
             default:
-                printf("argv: %s\n", argv[optind]);
+                log_error("unrecognized parameter: %s\n", argv[optind]);
                 usage();
         }
     argc -= optind;
     argv += optind;
 
-    /* If we debug, include verbose messages also */
+    // If we debug, include verbose messages also
     if (d_flag)
         v_flag = 1;
 
@@ -287,29 +320,22 @@ main(int argc, char **argv) {
     } else {
         scep_conf = NULL;    //moved init to here otherwise compile error on windows
     }
-    /* Read in the configuration file: */
+    // Read in the configuration file:
     /*if (f_char) {
-    #ifdef WIN32
-        if ((fopen_s(&fp, f_char, "r")))
-    #else
-        if (!(fp = fopen(f_char, "r")))
-    #endif
-            fprintf(stderr, "%s: cannot open %s\n", pname, f_char);
+        if (fopen_s(&fp, f_char, "r"))
+            log_error("cannot open %s", f_char);
         else {
             init_config(fp);
             (void)fclose(fp);
         }
     }*/
-    if (v_flag)
-        fprintf(stdout, "%s: starting sscep, version %s\n",
-                pname, VERSION);
+    log_debug("starting sscep, version %s", VERSION);
 
     /*
     * Create a new SCEP transaction and self-signed
     * certificate based on cert request
     */
-    if (v_flag)
-        fprintf(stdout, "%s: new transaction\n", pname);
+    log_debug("new transaction");
     new_transaction(&scep_t);
 
     /*enable Engine Support */
@@ -322,43 +348,40 @@ main(int argc, char **argv) {
      */
     if (!c_flag) {
         if (operation_flag == SCEP_OPERATION_GETCA) {
-            fprintf(stderr,
-                    "%s: missing CA certificate filename (-c)\n", pname);
+            log_error("missing CA certificate filename (-c)");
             exit(SCEP_PKISTATUS_ERROR);
         } else {
-            fprintf(stderr,
-                    "%s: missing CA certificate (-c)\n", pname);
+            log_error("missing CA certificate (-c)");
             exit(SCEP_PKISTATUS_ERROR);
         }
         if (operation_flag == SCEP_OPERATION_GETNEXTCA) {
-            fprintf(stderr,
-                    "%s: missing nextCA certificate target filename (-c)\n", pname);
+            log_error("missing nextCA certificate target filename (-c)");
             exit(SCEP_PKISTATUS_ERROR);
         } else {
-            fprintf(stderr,
-                    "%s: missing nextCA certificate target filename(-c)\n", pname);
+            log_error("missing nextCA certificate target filename(-c)");
             exit(SCEP_PKISTATUS_ERROR);
         }
     }
     if (!C_flag) {
         if (operation_flag == SCEP_OPERATION_GETNEXTCA) {
-            fprintf(stderr,
-                    "%s: missing nextCA certificate chain filename (-C)\n", pname);
+            log_error("missing nextCA certificate chain filename (-C)");
             exit(SCEP_PKISTATUS_ERROR);
         }
     }
     if (operation_flag == SCEP_OPERATION_ENROLL) {
-        if (!k_flag) {
-            fprintf(stderr, "%s: missing private key (-k)\n", pname);
-            exit(SCEP_PKISTATUS_ERROR);
+        if (!K_flag) {
+            if (!k_flag) {
+                log_error("missing private key for self-signed cert creation (-k) or (-K and -O)");
+                exit(SCEP_PKISTATUS_ERROR);
+            }
         }
         if (!r_flag) {
-            fprintf(stderr, "%s: missing request (-r)\n", pname);
+            log_error("missing request (-r)");
             exit(SCEP_PKISTATUS_ERROR);
 
         }
         if (!l_flag) {
-            fprintf(stderr, "%s: missing local cert (-l)\n", pname);
+            log_error("missing local cert (-l)");
             exit(SCEP_PKISTATUS_ERROR);
         }
         /* Set polling limits */
@@ -371,40 +394,40 @@ main(int argc, char **argv) {
     }
     if (operation_flag == SCEP_OPERATION_GETCERT) {
         if (!l_flag) {
-            fprintf(stderr, "%s: missing local cert (-l)\n", pname);
+            log_error("missing local cert (-l)");
             exit(SCEP_PKISTATUS_ERROR);
         }
         if (!s_flag) {
-            fprintf(stderr, "%s: missing serial no (-s)\n", pname);
+            log_error("missing serial no (-s)");
             exit(SCEP_PKISTATUS_ERROR);
         }
         if (!w_flag) {
-            fprintf(stderr, "%s: missing cert file (-w)\n", pname);
+            log_error("missing cert file (-w)");
             exit(SCEP_PKISTATUS_ERROR);
         }
         if (!k_flag) {
-            fprintf(stderr, "%s: missing private key (-k)\n", pname);
+            log_error("missing private key (-k)");
             exit(SCEP_PKISTATUS_ERROR);
         }
     }
     if (operation_flag == SCEP_OPERATION_GETCRL) {
         if (!l_flag) {
-            fprintf(stderr, "%s: missing local cert (-l)\n", pname);
+            log_error("missing local cert (-l)");
             exit(SCEP_PKISTATUS_ERROR);
         }
         if (!w_flag) {
-            fprintf(stderr, "%s: missing crl file (-w)\n", pname);
+            log_error("missing crl file (-w)");
             exit(SCEP_PKISTATUS_ERROR);
         }
         if (!k_flag) {
-            fprintf(stderr, "%s: missing private key (-k)\n", pname);
+            log_error("missing private key (-k)");
             exit(SCEP_PKISTATUS_ERROR);
         }
     }
 
     /* Break down the URL */
     if (!u_flag) {
-        fprintf(stderr, "%s: missing URL (-u)\n", pname);
+        log_error("missing URL (-u)");
         exit(SCEP_PKISTATUS_ERROR);
     }
     int url_head_len = 0;
@@ -417,7 +440,7 @@ main(int argc, char **argv) {
             host_port = 443;
             url_head_len = (int) strlen(HTTPS_CMP);
         } else {
-            fprintf(stderr, "%s: illegal URL %s\n", pname, url_char);
+            log_error("illegal URL %s", url_char);
             exit(SCEP_PKISTATUS_ERROR);
         }
     }
@@ -429,8 +452,9 @@ main(int argc, char **argv) {
 #endif
         dir_name = url_char;
     }
+
 #ifdef WIN32
-        else if (!(host_name = _strdup(url_char + url_head_len)))
+    else if (!(host_name = _strdup(url_char + url_head_len)))
 #else
     else if (!(host_name = strdup(url_char + url_head_len)))
 #endif
@@ -452,19 +476,17 @@ main(int argc, char **argv) {
         p++;
     }
     if (!dir_name) {
-        fprintf(stderr, "%s: illegal URL %s\n", pname, url_char);
+        log_error("illegal URL %s", url_char);
         exit(SCEP_PKISTATUS_ERROR);
     }
     if (host_port < 1 || host_port > 65550) {
-        fprintf(stderr, "%s: illegal port number %d\n", pname,
-                host_port);
+        log_error("illegal port number %d", host_port);
         exit(SCEP_PKISTATUS_ERROR);
     }
-    if (v_flag) {
-        fprintf(stdout, "%s: hostname: %s\n", pname, host_name);
-        fprintf(stdout, "%s: directory: %s\n", pname, dir_name);
-        fprintf(stdout, "%s: port: %d\n", pname, host_port);
-    }
+
+    log_debug("hostname: %s", host_name);
+    log_debug("directory: %s", dir_name);
+    log_debug("port: %d", host_port);
 
     /* Check algorithms */
     if (!E_flag) {
@@ -478,8 +500,7 @@ main(int argc, char **argv) {
     } else if (!strncmp(E_char, "aes", 3)) {
         enc_alg = (EVP_CIPHER *) EVP_aes_256_cbc();
     } else {
-        fprintf(stderr, "%s: unsupported algorithm: %s\n",
-                pname, E_char);
+        log_error("unsupported algorithm: %s", E_char);
         exit(SCEP_PKISTATUS_ERROR);
     }
     if (!S_flag) {
@@ -488,9 +509,12 @@ main(int argc, char **argv) {
         sig_alg = (EVP_MD *) EVP_md5();
     } else if (!strncmp(S_char, "sha1", 4)) {
         sig_alg = (EVP_MD *) EVP_sha1();
+    } else if (!strncmp(S_char, "sha256", 6)) {
+        sig_alg = (EVP_MD *)EVP_sha256();
+    } else if (!strncmp(S_char, "sha512", 6)) {
+        sig_alg = (EVP_MD *)EVP_sha512();
     } else {
-        fprintf(stderr, "%s: unsupported algorithm: %s\n",
-                pname, S_char);
+        log_error("unsupported algorithm: %s", S_char);
         exit(SCEP_PKISTATUS_ERROR);
     }
     /* Fingerprint algorithm */
@@ -500,9 +524,12 @@ main(int argc, char **argv) {
         fp_alg = (EVP_MD *) EVP_md5();
     } else if (!strncmp(F_char, "sha1", 4)) {
         fp_alg = (EVP_MD *) EVP_sha1();
+    } else if (!strncmp(F_char, "sha256", 6)) {
+        fp_alg = (EVP_MD *)EVP_sha256();
+    } else if (!strncmp(F_char, "sha512", 6)) {
+        fp_alg = (EVP_MD *)EVP_sha512();
     } else {
-        fprintf(stderr, "%s: unsupported algorithm: %s\n",
-                pname, F_char);
+        log_error("unsupported algorithm: %s", F_char);
         exit(SCEP_PKISTATUS_ERROR);
     }
 
@@ -511,9 +538,7 @@ main(int argc, char **argv) {
      */
     switch (operation_flag) {
         case SCEP_OPERATION_GETCA:
-            if (v_flag)
-                fprintf(stdout, "%s: SCEP_OPERATION_GETCA\n",
-                        pname);
+            log_debug("SCEP_OPERATION_GETCA");
 
             /* Set CA identifier */
             if (!i_flag)
@@ -535,11 +560,7 @@ main(int argc, char **argv) {
 
             }
 
-            if (d_flag) {
-                printf("%s: requesting CA certificate\n", pname);
-                fprintf(stdout, "%s: scep msg: %s", pname,
-                        http_string);
-            }
+            log_trace("requesting CA certificate\nscep msg: %s", http_string);
 
             /*
              * Send http message.
@@ -548,18 +569,14 @@ main(int argc, char **argv) {
             reply.payload = NULL;
            if ((c = send_msg(&reply, http_string, host_name,
                               host_port, operation_flag)) == 1) {
-                fprintf(stderr, "%s: error while sending "
-                                "message\n", pname);
+                log_error("error while sending message");
                 exit(SCEP_PKISTATUS_NET);
             }
             if (reply.payload == NULL) {
-                fprintf(stderr, "%s: no data, perhaps you "
-                                "should define CA identifier (-i)\n", pname);
+                log_error("no data, perhaps you should define CA identifier (-i)");
                 exit(SCEP_PKISTATUS_SUCCESS);
             }
-            if (v_flag) {
-                printf("%s: valid response from server\n", pname);
-            }
+            log_debug("valid response from server");
             if (reply.type == SCEP_MIME_GETCA_RA) {
                 /* XXXXXXXXXXXXXXXXXXXXX chain not verified */
                 write_ca_ra(&reply);
@@ -574,43 +591,29 @@ main(int argc, char **argv) {
                 exit(SCEP_PKISTATUS_ERROR);
             }
             if (v_flag) {
-                printf("%s: %s fingerprint: ", pname,
-                       OBJ_nid2sn(EVP_MD_type(fp_alg)));
+                log_debug("%s fingerprint: ", OBJ_nid2sn(EVP_MD_type(fp_alg)));
                 for (c = 0; c < (int) n; c++) {
-                    printf("%02X%c", md[c],
-                           (c + 1 == (int) n) ? '\n' : ':');
+                    log_debug("%02X%c", md[c], (c + 1 == (int) n) ? '\n' : ':');
                 }
-
             }
 
-            /* Write PEM-formatted file: */
-#ifdef WIN32
-            if ((fopen_s(&fp,c_char , "w")))
-#else
-            if (!(fp = fopen(c_char, "w")))
-#endif
-            {
-                fprintf(stderr, "%s: cannot open CA file for "
-                                "writing\n", pname);
+            // Write PEM-formatted file:
+            if (fopen_s(&fp, c_char , "w")) {
+                log_error("cannot open CA file for writing");
                 exit(SCEP_PKISTATUS_ERROR);
             }
             if (PEM_write_X509(fp, cacert) != 1) {
-                fprintf(stderr, "%s: error while writing CA "
-                                "file\n", pname);
+                log_error("error while writing CA file");
                 ERR_print_errors_fp(stderr);
                 exit(SCEP_PKISTATUS_ERROR);
             }
-            if (v_flag)
-                printf("%s: CA certificate written as %s\n",
-                       pname, c_char);
-            (void) fclose(fp);
+            log_debug("CA certificate written as %s", c_char);
+            fclose(fp);
             scep_t.pki_status = pkistatus = SCEP_PKISTATUS_SUCCESS;
             break;
 
         case SCEP_OPERATION_GETNEXTCA:
-            if (v_flag)
-                fprintf(stdout, "%s: SCEP_OPERATION_GETNEXTCA\n",
-                        pname);
+            log_debug("SCEP_OPERATION_GETNEXTCA");
 
             /* Set CA identifier */
             if (!i_flag)
@@ -631,36 +634,22 @@ main(int argc, char **argv) {
 
             }
 
-
-            if (d_flag) {
-                printf("%s: requesting nextCA certificate\n", pname);
-                fprintf(stdout, "%s: scep msg: %s", pname,
-                        http_string);
-            }
+            log_trace("requesting nextCA certificate\nscep msg: %s", http_string);
 
             /*
              * Send http message.
              * Response is written to http_response struct "reply".
              */
             reply.payload = NULL;
-            if ((c = send_msg(&reply, http_string, host_name,
-                              host_port, operation_flag)) == 1) {
-                if (v_flag) {
-                    fprintf(stderr, "%s: error while sending "
-                                    "message\n", pname);
-                    fprintf(stderr, "%s: getnextCA might be not available"
-                                    "\n", pname);
-                }
+            if ((c = send_msg(&reply, http_string, host_name, host_port, operation_flag)) == 1) {
+                log_error("error while sending message; getnextCA might be not available");
                 exit(SCEP_PKISTATUS_NET);
             }
             if (reply.payload == NULL) {
-                fprintf(stderr, "%s: no data, perhaps you "
-                                "there is no nextCA available\n", pname);
+                log_error("no data, perhaps you there is no nextCA available");
                 exit(SCEP_PKISTATUS_SUCCESS);
             }
-
-            if (d_flag)
-                printf("%s: valid response from server\n", pname);
+            log_trace("valid response from server");
 
             if (reply.type == SCEP_MIME_GETNEXTCA) {
                 /* XXXXXXXXXXXXXXXXXXXXX chain not verified */
@@ -683,9 +672,7 @@ main(int argc, char **argv) {
             p7 = *(scep_t.reply_p7);
             nextcara = scep_t.reply_p7->d.sign->cert;
 
-            if (v_flag) {
-                printf("verify and unwrap: found %d cert(s)\n", sk_X509_num(nextcara));
-            }
+            log_debug("verify and unwrap: found %d cert(s)", sk_X509_num(nextcara));
 
             for (i = 0; i < sk_X509_num(nextcara); i++) {
                 char buffer[1024];
@@ -695,13 +682,9 @@ main(int argc, char **argv) {
 
                 cert = sk_X509_value(nextcara, i);
                 if (v_flag) {
-                    printf("%s: found certificate with\n"
-                           "  subject: '%s'\n", pname,
-                           X509_NAME_oneline(X509_get_subject_name(cert),
-                                             buffer, sizeof(buffer)));
-                    printf("  issuer: %s\n",
-                           X509_NAME_oneline(X509_get_issuer_name(cert),
-                                             buffer, sizeof(buffer)));
+                    log_debug("found certificate with\n subject: '%s'\n issuer: %s",
+                           X509_NAME_oneline(X509_get_subject_name(cert), buffer, sizeof(buffer)),
+                           X509_NAME_oneline(X509_get_issuer_name(cert), buffer, sizeof(buffer)));
                 }
 
                 /* Create name */
@@ -710,25 +693,21 @@ main(int argc, char **argv) {
 
                 /* Write PEM-formatted file: */
                 if (!(fp = fopen(name, "w"))) {
-                    fprintf(stderr, "%s: cannot open cert file for writing\n",
-                            pname);
+                    log_error("cannot open cert file for writing");
                     exit(SCEP_PKISTATUS_FILE);
                 }
-                if (v_flag)
-                    printf("%s: writing cert\n", pname);
-                if (d_flag)
-                    PEM_write_X509(stdout, cert);
+
+                log_debug("writing cert");
+                if (d_flag) PEM_write_X509(stdout, cert);
+
                 if (PEM_write_X509(fp, cert) != 1) {
-                    fprintf(stderr, "%s: error while writing certificate "
-                                    "file\n", pname);
+                    log_error("error while writing certificate file");
                     ERR_print_errors_fp(stderr);
                     exit(SCEP_PKISTATUS_FILE);
                 }
-                if (v_flag)
-                    printf("%s: certificate written as %s\n", pname, name);
-                (void) fclose(fp);
+                log_debug("certificate written as %s", name);
+                fclose(fp);
             }
-
 
             pkistatus = SCEP_PKISTATUS_SUCCESS;
             break;
@@ -737,7 +716,7 @@ main(int argc, char **argv) {
         case SCEP_OPERATION_GETCRL:
             /* Read local certificate */
             if (!l_flag) {
-                fprintf(stderr, "%s: missing local cert (-l)\n", pname);
+                log_error("missing local cert (-l)");
                 exit(SCEP_PKISTATUS_FILE);
             }
             read_cert(&localcert, l_char);
@@ -748,54 +727,51 @@ main(int argc, char **argv) {
              * request in global variables.
              */
 
-            read_ca_cert();
-
-            if (!k_flag) {
-                fprintf(stderr, "%s: missing private key (-k)\n", pname);
-                exit(SCEP_PKISTATUS_FILE);
-            }
-
-            if (scep_conf != NULL) {
-                sscep_engine_read_key_new(&rsa, k_char, scep_t.e);
+            if (c_flag) {
+                log_trace("read CA cert: %s", c_char);
+                read_cert(&cacert, c_char);
             } else {
-                read_key(&rsa, k_char);
+                log_error("missing CA cert (-c)");
+                exit (SCEP_PKISTATUS_FILE);
+            }
+            if (e_flag) {
+                log_trace("read encryption cert: %s", e_char);
+                read_cert(&encert, e_char);
             }
 
+            if (!K_flag) {
+                if (scep_conf != NULL) {
+                    sscep_engine_read_key_new(&rsa, k_char, scep_t.e);
+                } else {
+                    read_key(&rsa, k_char);
+                }
+            }
 
             if ((K_flag && !O_flag) || (!K_flag && O_flag)) {
-                fprintf(stderr, "%s: -O also requires -K (and vice-versa)\n", pname);
+                log_error("-O also requires -K (and vice-versa)");
                 exit(SCEP_PKISTATUS_FILE);
-            }
-
-            if (K_flag) {
-                //TODO auf hwcrhk prfen?
+            } else if (K_flag && O_flag) {
+                //TODO auf hwcrhk prüfen?
                 if (scep_conf != NULL) {
                     sscep_engine_read_key_old(&renewal_key, K_char, scep_t.e);
                 } else {
                     read_key(&renewal_key, K_char);
                 }
-            }
-
-            if (O_flag) {
                 read_cert(&renewal_cert, O_char);
             }
 
             if (operation_flag == SCEP_OPERATION_ENROLL) {
-                read_request();
+                if (r_flag) read_request(&request, r_char);
+                else log_warn("missing request file parameter (-r)");
                 scep_t.transaction_id = key_fingerprint(request);
-                if (v_flag) {
-                    printf("%s:  Read request with transaction id: %s\n", pname, scep_t.transaction_id);
-                }
+                log_debug("Read request with transaction id: %s", scep_t.transaction_id);
             }
-
 
             if (operation_flag != SCEP_OPERATION_ENROLL)
                 goto not_enroll;
 
             if (!O_flag) {
-                if (v_flag)
-                    fprintf(stdout, "%s: generating selfsigned "
-                                    "certificate\n", pname);
+                log_debug("generating selfsigned certificate");
                 new_selfsigned(&scep_t);
             } else {
                 /* Use existing certificate */
@@ -803,63 +779,37 @@ main(int argc, char **argv) {
                 scep_t.signerkey = renewal_key;
             }
 
-            /* Write the selfsigned certificate if requested */
+            // Write the selfsigned certificate if requested
             if (L_flag) {
-                /* Write PEM-formatted file: */
-#ifdef WIN32
-                if ((fopen_s(&fp, L_char, "w"))) {
-#else
-                if (!(fp = fopen(L_char, "w"))) {
-#endif
-                    fprintf(stderr, "%s: cannot open "
-                                    "file for writing\n", pname);
-                    exit(SCEP_PKISTATUS_ERROR);
-                }
-                if (PEM_write_X509(fp, scep_t.signercert) != 1) {
-                    fprintf(stderr, "%s: error while "
-                                    "writing certificate file\n", pname);
-                    ERR_print_errors_fp(stderr);
-                    exit(SCEP_PKISTATUS_ERROR);
-                }
-                printf("%s: selfsigned certificate written "
-                       "as %s\n", pname, L_char);
-                (void) fclose(fp);
+                write_cert(scep_t.signercert, L_char);
             }
-            /* Write issuer name and subject (GetCertInitial): */
-            if (!(scep_t.ias_getcertinit->subject =
-                          X509_REQ_get_subject_name(request))) {
-                fprintf(stderr, "%s: error getting subject "
-                                "for GetCertInitial\n", pname);
+            // Write issuer name and subject (GetCertInitial):
+            if (!(scep_t.ias_getcertinit->subject = X509_REQ_get_subject_name(request))) {
+                log_error("error getting subject for GetCertInitial");
                 ERR_print_errors_fp(stderr);
                 exit(SCEP_PKISTATUS_ERROR);
             }
         not_enroll:
-            if (!(scep_t.ias_getcertinit->issuer =
-                          X509_get_subject_name(cacert))) {
-                fprintf(stderr, "%s: error getting issuer "
-                                "for GetCertInitial\n", pname);
+            if (!(scep_t.ias_getcertinit->issuer = X509_get_subject_name(cacert))) {
+                log_error("error getting issuer for GetCertInitial");
                 ERR_print_errors_fp(stderr);
                 exit(SCEP_PKISTATUS_ERROR);
             }
-            /* Write issuer name and serial (GETC{ert,rl}): */
-            scep_t.ias_getcert->issuer =
-                    scep_t.ias_getcertinit->issuer;
-            scep_t.ias_getcrl->issuer =
-                    scep_t.ias_getcertinit->issuer;
-            if (!(scep_t.ias_getcrl->serial =
-                          X509_get_serialNumber(cacert))) {
-                fprintf(stderr, "%s: error getting serial "
-                                "for GetCertInitial\n", pname);
+            // Write issuer name and serial (GETC{ert,rl}):
+            scep_t.ias_getcert->issuer = scep_t.ias_getcertinit->issuer;
+            scep_t.ias_getcrl->issuer = scep_t.ias_getcertinit->issuer;
+            if (!(scep_t.ias_getcrl->serial = X509_get_serialNumber(cacert))) {
+                log_error("error getting serial for GetCertInitial");
                 ERR_print_errors_fp(stderr);
                 exit(SCEP_PKISTATUS_ERROR);
             }
-            /* User supplied serial number */
+            // User supplied serial number
             if (s_flag) {
                 BIGNUM *bn;
                 ASN1_INTEGER *ai;
                 int len = BN_dec2bn(&bn, s_char);
                 if (!len || !(ai = BN_to_ASN1_INTEGER(bn, NULL))) {
-                    fprintf(stderr, "%s: error converting serial\n", pname);
+                    log_error("error converting serial");
                     ERR_print_errors_fp(stderr);
                     exit(SCEP_PKISTATUS_SS);
                 }
@@ -870,75 +820,54 @@ main(int argc, char **argv) {
 
     switch (operation_flag) {
         case SCEP_OPERATION_ENROLL:
-            if (v_flag)
-                fprintf(stdout,
-                        "%s: SCEP_OPERATION_ENROLL\n", pname);
-            /* Resum mode: set GetCertInitial */
+            log_debug("SCEP_OPERATION_ENROLL");
+            // Resum mode: set GetCertInitial
             if (R_flag) {
-                if (n_num == 0)
-                    exit(SCEP_PKISTATUS_SUCCESS);
-                printf("%s: requesting certificate (#1)\n",
-                       pname);
+                if (n_num == 0) exit(SCEP_PKISTATUS_SUCCESS);
+                log_info("requesting certificate (#1)");
                 scep_t.request_type = SCEP_REQUEST_GETCERTINIT;
                 count++;
             } else {
-                printf("%s: sending certificate request\n",
-                       pname);
+                log_info("sending certificate request");
                 scep_t.request_type = SCEP_REQUEST_PKCSREQ;
             }
             break;
 
         case SCEP_OPERATION_GETCERT:
-            if (v_flag)
-                fprintf(stdout,
-                        "%s: SCEP_OPERATION_GETCERT\n", pname);
-
+            log_debug("SCEP_OPERATION_GETCERT");
             scep_t.request_type = SCEP_REQUEST_GETCERT;
-            printf("%s: requesting certificate\n", pname);
+            log_info("requesting certificate");
             break;
 
         case SCEP_OPERATION_GETCRL:
-            if (v_flag)
-                fprintf(stdout,
-                        "%s: SCEP_OPERATION_GETCRL\n", pname);
-
+            log_debug("SCEP_OPERATION_GETCRL");
             scep_t.request_type = SCEP_REQUEST_GETCRL;
-            printf("%s: requesting crl\n", pname);
+            log_info("requesting crl");
             break;
     }
 
-    /* Enter polling loop */
+    // Enter polling loop
     while (scep_t.pki_status != SCEP_PKISTATUS_SUCCESS) {
-        /* create payload */
+        // create payload
         pkcs7_wrap(&scep_t);
 
-        /* URL-encode */
-        p = url_encode((char *) scep_t.request_payload,
-                       scep_t.request_len);
+        // URL-encode
+        p = url_encode((char *) scep_t.request_payload, scep_t.request_len);
 
-        /*Test mode print SCEP request and don't send it*/
+        // Test mode print SCEP request and don't send it
         if (m_flag) {
-
-            /* Write output file : */
-#ifdef WIN32
-            if ((fopen_s(&fp, m_char, "w")))
-#else
-            if (!(fp = fopen(m_char, "w")))
-#endif
-            {
-                fprintf(stderr, "%s: cannot open output file for "
-                                "writing\n", m_char);
+            // Write output file :
+            if ((fopen_s(&fp, m_char, "w"))) {
+                log_error("cannot open output file for writing (%s)", m_char);
             } else {
-                printf("%s: writing PEM fomatted PKCS#7\n", pname);
+                log_info("writing PEM fomatted PKCS#7");
                 PEM_write_PKCS7(fp, scep_t.request_p7);
             }
-
-            //printf("Print SCEP Request:\n %s\n",scep_t.request_payload);
             return 0;
         }
 
-        /* Forge the HTTP message */
-        /*	snprintf(http_string, sizeof(http_string),
+        // Forge the HTTP message
+        /* snprintf(http_string, sizeof(http_string),
                 "GET %s%s?operation="
                 "PKIOperation&message="
                 "%s HTTP/1.0\r\n\r\n",
@@ -948,28 +877,21 @@ main(int argc, char **argv) {
             snprintf(http_string, sizeof(http_string),
                      "GET %s%s?operation=PKIOperation&message=%s "
                      "HTTP/1.0\r\n\r\n", p_flag ? "" : "/", dir_name, p);
-
         } else {
             snprintf(http_string, sizeof(http_string),
                      "GET %s%s?operation=PKIOperation&message=%s&%s "
                      "HTTP/1.0\r\n\r\n", p_flag ? "" : "/", dir_name, p, M_char);
-
         }
 
-        if (d_flag)
-            fprintf(stdout, "%s: scep msg: %s",
-                    pname, http_string);
+        log_trace("scep msg: %s", http_string);
 
-        /* send http */
+        // send http
         reply.payload = NULL;
-        if ((c = send_msg(&reply, http_string, host_name,
-                          host_port, operation_flag)) == 1) {
-            fprintf(stderr, "%s: error while sending "
-                            "message\n", pname);
+        if ((c = send_msg(&reply, http_string, host_name, host_port, operation_flag)) == 1) {
+            log_error("error while sending message");
             exit(SCEP_PKISTATUS_NET);
         }
-        /* Verisign Onsite returns strange reply...
-         * XXXXXXXXXXXXXXXXXXX */
+        // Verisign Onsite returns strange reply... XXXXXXXXXXXXXXXXXXX
         if ((reply.status == 200) && (reply.payload == NULL)) {
             /*
             scep_t.pki_status = SCEP_PKISTATUS_PENDING;
@@ -977,9 +899,9 @@ main(int argc, char **argv) {
             */
             exit(SCEP_PKISTATUS_ERROR);
         }
-        printf("%s: valid response from server\n", pname);
+        log_info("valid response from server\n");
 
-        /* Check payload */
+        // Check payload
         scep_t.reply_len = reply.bytes;
         scep_t.reply_payload = (unsigned char *) reply.payload;
         pkcs7_unwrap(&scep_t);
@@ -989,29 +911,24 @@ main(int argc, char **argv) {
             case SCEP_PKISTATUS_SUCCESS:
                 break;
             case SCEP_PKISTATUS_PENDING:
-                /* Check time limits */
-                if (((t_num * count) >= T_num) ||
-                    (count > n_num)) {
+                // Check time limits
+                if (((t_num * count) >= T_num) || (count > n_num)) {
                     exit(pkistatus);
                 }
-                scep_t.request_type =
-                        SCEP_REQUEST_GETCERTINIT;
+                scep_t.request_type = SCEP_REQUEST_GETCERTINIT;
 
-                /* Wait for poll interval */
-                if (v_flag)
-                    printf("%s: waiting for %d secs\n",
-                           pname, t_num);
+                // Wait for poll interval
+                log_debug("waiting for %d secs", t_num);
                 sleep(t_num);
-                printf("%s: requesting certificate "
-                       "(#%d)\n", pname, count);
+                log_info("requesting certificate (#%d)", count);
 
-                /* Add counter */
+                // Add counter
                 count++;
                 break;
 
             case SCEP_PKISTATUS_FAILURE:
 
-                /* Handle failure */
+                // Handle failure
                 switch (scep_t.fail_info) {
                     case SCEP_FAILINFO_BADALG:
                         exit(SCEP_PKISTATUS_BADALG);
@@ -1023,54 +940,44 @@ main(int argc, char **argv) {
                         exit(SCEP_PKISTATUS_BADTIME);
                     case SCEP_FAILINFO_BADCERTID:
                         exit(SCEP_PKISTATUS_BADCERTID);
-                        /* Shouldn't be there... */
+                        // Shouldn't be there...
                     default:
                         exit(SCEP_PKISTATUS_ERROR);
                 }
             default:
-                fprintf(stderr, "%s: unknown "
-                                "pkiStatus\n", pname);
+                log_error("unknown pkiStatus");
                 exit(SCEP_PKISTATUS_ERROR);
         }
     }
-    /* We got SUCCESS, analyze the reply */
+    // We got SUCCESS, analyze the reply
     switch (scep_t.request_type) {
 
-        /* Local certificate */
+        // Local certificate
         case SCEP_REQUEST_PKCSREQ:
         case SCEP_REQUEST_GETCERTINIT:
             write_local_cert(&scep_t);
             break;
 
-            /* Other end entity certificate */
+            // Other end entity certificate
         case SCEP_REQUEST_GETCERT:
             write_other_cert(&scep_t);
             break;
-
-            break;
-            /* CRL */
+            // CRL
         case SCEP_REQUEST_GETCRL:
             write_crl(&scep_t);
             break;
     }
-    //TODO
-    //richtiger ort für disable??
-//	if(e){
-//		ENGINE_finish(*e);
-//		ENGINE_free(*e);
-//	    hwEngine = NULL;
-//	    ENGINE_cleanup();
-//	}
-//
-
-
-
-
+    // TODO: right location for the disable ??
+//    if(e){
+//        ENGINE_finish(*e);
+//        ENGINE_free(*e);
+//        hwEngine = NULL;
+//        ENGINE_cleanup();
+//    }
     return (pkistatus);
 }
 
-void
-usage() {
+void usage() {
     fprintf(stdout, "\nsscep version %s\n\n", VERSION);
     fprintf(stdout, "Usage: %s OPERATION [OPTIONS]\n"
                     "\nAvailable OPERATIONs are\n"
@@ -1082,18 +989,18 @@ usage() {
                     "\nGeneral OPTIONS\n"
                     "  -u <url>          SCEP server URL\n"
                     "  -p <host:port>    Use proxy server at host:port\n"
-                    "  -M <string>		 Monitor Information String name=value&name=value ...\n"
+                    "  -M <string>         Monitor Information String name=value&name=value ...\n"
                     "  -g                Enable Engine support\n"
-                    "  -h				 Keyforme=ID. \n"//TODO
+                    "  -h                 Keyforme=ID. \n" // TODO
                     "  -f <file>         Use configuration file\n"
                     "  -c <file>         CA certificate file (write if OPERATION is getca or getnextca)\n"
                     "  -E <name>         PKCS#7 encryption algorithm (des|3des|blowfish|aes)\n"
-                    "  -S <name>         PKCS#7 signature algorithm (md5|sha1)\n"
+                    "  -S <name>         PKCS#7 signature algorithm (md5|sha1|sha256|sha512)\n"
                     "  -v                Verbose operation\n"
                     "  -d                Debug (even more verbose operation)\n"
                     "\nOPTIONS for OPERATION getca are\n"
                     "  -i <string>       CA identifier string\n"
-                    "  -F <name>         Fingerprint algorithm\n"
+    "  -F <name>         Fingerprint algorithm (md5|sha1|sha256|sha512)\n"
                     "\nOPTIONS for OPERATION getnextca are\n"
                     "  -C <file>         Local certificate chain file for signature verification in PEM format \n"
                     "  -F <name>         Fingerprint algorithm\n"
@@ -1123,8 +1030,7 @@ usage() {
     exit(0);
 }
 
-void
-catchalarm(int signo) {
+void catchalarm(int signo) {
     fprintf(stderr, "%s: connection timed out\n", pname);
     exit(SCEP_PKISTATUS_TIMEOUT);
 }
